@@ -13,8 +13,7 @@ tree = html.fromstring(page.text)
 t = tree.xpath('//title/text()')
 title = t[0].replace('\n','').strip()
 print "Downloaded '"+title+"' -"+str(len(page.text))+" bytes"
-
-print "#####################################################"
+#print "#####################################################"
 
 scripts = tree.xpath('//script/text()') 
 for s in scripts:
@@ -35,39 +34,54 @@ for c in player_script[p1:]:
 	if nesting == 0:
 		break;
 
-argstr = player_script[p1:p2] 
-print p1, p2, nesting
-print "#####################################################"
-
-arg_list = json.loads(argstr)
-encoded_fmt_stream_map = arg_list['args']['url_encoded_fmt_stream_map']
-smap_list = encoded_fmt_stream_map.split(",") 
-
+arg_list = json.loads(player_script[p1:p2])
 encoded_map = arg_list['args']['url_encoded_fmt_stream_map'].split(",") 
+encoded_map_adp = arg_list['args']['adaptive_fmts'].split(",")
 
-#print url_map 
-#print "#####################################################"
+res_index = { 'small': '240', 'medium': '360', 'high': '480', 'hd720': '720' } 
 
 count =0
 fmt_stream_map = list()
-for smap in smap_list:
+for smap in encoded_map:
 	fmt_map_list = smap.split("&") 
-	smap = dict() 
+	fmt_map = dict({'fmt':"std"}) 
 	for sm in fmt_map_list:
 		pair = sm.split("=")
 		pair[1] = urllib.unquote(pair[1]).decode('utf8')
 		pair[1] = urllib.unquote(pair[1]).decode('utf8')
-		smap.update({pair[0]:pair[1]}) 
-
-	fmt_stream_map.append(smap)
+		fmt_map.update({str(pair[0]):str(pair[1])}) 
+		if pair[0] == "quality":
+			fmt_map.update({'res':res_index[pair[1]]}) 
+					
+	fmt_stream_map.append(fmt_map)
 	count+= 1
 
+for smap in encoded_map_adp:
+	fmt_map_list = smap.split("&") 
+	fmt_map = dict({'fmt':"adp"}) 
+	for sm in fmt_map_list:
+		pair = sm.split("=")
+		pair[1] = urllib.unquote(pair[1]).decode('utf8')
+		pair[1] = urllib.unquote(pair[1]).decode('utf8')
+		fmt_map.update({str(pair[0]):str(pair[1])}) 
+		if pair[0] == "size": 
+			res = str((pair[1].split("x"))[1])
+			fmt_map.update({'res':res}) 
+
+	if 'res' not in fmt_map:
+		fmt_map.update({'res':'0'}) 
+	fmt_stream_map.append(fmt_map)
+	count+= 1
+
+fmt_stream_map = sorted(fmt_stream_map, key= lambda k: int(k['res']), reverse=True) 
+
 print "FINAL #####################################################"
-#pprint.pprint(fmt_stream_map)
 
 for smap in fmt_stream_map:
-	print "-----------------------------------" 
 	for key in smap:
-		print key+":\t\t"+smap[key]
+		print key+":    "+str(smap[key])
+	
+	print "-----------------------------------" 
 
+print "Good bye!" 
 
