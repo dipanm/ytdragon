@@ -1,5 +1,24 @@
 #!/usr/bin/python -u 
 
+#--------------------------------------------------------------------------------------------
+# Wish list 
+#	- deal with network failures. 
+#	- deal with resume on socket. (resume partial downloads) 
+#	- maintain a trace and don't redownload what you have already got. 
+#	- you can also check if the file is physically present. 
+#	- needs to see that duration available locally matches with what is claimed by YT
+#	- maintain csv generator that can keep the trace. 
+#	- read list file which can be a CSV - as extracted by channel decoders / playlist decoders etc. 
+#	- mark column that will allow users to select/deselect files required to download 
+#	- parallel thread downloading 
+#	- proper logging on per download basis. (vid.log) independent of stdout for basic purpose. 
+#	- bring ffmpeg output to perstream log 
+#	- ffmpeg -vcoded copy doesn't work! 
+#	- generalize the output file format 
+#	- downalod_stream function should provide data of actual status and details of download (put it to trace)
+#	- get watch page to retrive the play duration - dont' need to downloard the full thing for it. 
+#--------------------------------------------------------------------------------------------
+
 from lxml import html 
 import requests 
 
@@ -12,6 +31,7 @@ import os
 import sys
 import socket 
 import re
+import getopt
 
 def get_watch_page(url):
 	page = requests.get(url)
@@ -20,14 +40,13 @@ def get_watch_page(url):
 	title = t[0].replace('\n','').rsplit('-',1)[0].strip() 
 
 	parsed_url = urlparse.urlparse(url)
-	uid = urlparse.parse_qs(parsed_url.query)['v'][0]
+	vid = urlparse.parse_qs(parsed_url.query)['v'][0]
 
-	print "--------------------------------------------------------------"
-	print "Watch page:",title
-	print "URL:",url
-	print "UID:",uid," Size:",len(page.text),"bytes"
+	print "=================================================================="
+	print "Watch page:",url,"\n","Title:",title
+	print "VID:",vid," Size:",len(page.text),"bytes"
 
-	return { 'title': title, 'uid': uid, 'tree': tree }  
+	return { 'title': title, 'vid': vid, 'tree': tree }  
 
 def get_stream_map_serial(tree):
 
@@ -134,7 +153,7 @@ def print_smap_detailed(map_name,smap):
 		i += 1
 		
 def print_smap_abridged(map_name,smap):
-	print map_name,"Total:  ",len(smap),"  ===================================================== " 
+	print map_name,"Total:  ",len(smap),"  ----------------------------------------------------- " 
 	for s in smap:
 		if s['media'] == "audio-video":
 			print s['quality'],"("+str(s['res'])+"p)","[",s['type'],"]"
@@ -202,7 +221,7 @@ def download_streams(page, select_map,folder):
 		print "\nDownloading ",smap['media'],": Destination=",filename
 		print "URL: ",smap['url'],"\n"
 		t0 = datetime.datetime.now() 
-		socket.setdefaulttimeout(60)
+		#socket.setdefaulttimeout(60)
 		fname, msg = urllib.urlretrieve(url,filename,reporthook=dlProgress) 
 		t1 = datetime.datetime.now() 
 		print "\n",msg,"Time ",t1-t0, "\n---------------------------------" 
@@ -218,9 +237,9 @@ def download_streams(page, select_map,folder):
 			os.remove(temp_files[key]) 
 		print "-----------------------------------" 
 
-def download_stream(uid,folder):
+def download_stream(vid,folder):
 	
-	url = "https://www.youtube.com/watch?v="+uid
+	url = "https://www.youtube.com/watch?v="+vid
 
 	watch_page = get_watch_page(url) 
 	print "\n" 
@@ -239,31 +258,81 @@ def download_stream(uid,folder):
 	return
 
 
-def get_uid_from_url(string):
-	print "url string",string,"\n" 
+def get_vid_from_url(string):
 	if re.match('^(http|https)://', string):
 		url = string
 		para = url.split('?')[1].split(",")
 		for p in para:
 			key, value = p.split("=")
 			if(key == 'v'):
-				uid = value 
+				vid = value 
 	else:
-		uid = string 
+		vid = string 
 
-	return uid 
+	return vid 
  
+def read_list(listfile):
+
+	i=0
+	url_list = list() 
+	lf  = open(listfile, "r")
+	for line in lf:
+		if line.strip():
+			url_list.append(line.rstrip()) 
+		i += 1 
+
+	return  url_list  
+
+def parse_arguments(argv): 
+	vid = '' 
+	item = ''
+	ulist = '' 
+	folder = ''
+	list_mode = 0 
+
+	try:
+		opts, args = getopt.getopt(argv,"f:i:l:",["item=","list="])
+	except getopt.GetoptError:
+		print "Usage: ",sys.argv[0],"-f|--folder='destination' -i|--item='id'/'watch_url' OR -l|--list='url_list' "
+		sys.exit(2)
+	for opt, arg in opts:
+		if opt in ("-f", "--folder"):
+			folder = arg
+			print "Destination folder", folder 
+		elif opt in ("-i","--item"):
+			item = arg 
+			list_mode = 0 
+		elif opt in ("-l","--list"):
+			ulist = arg
+			list_mode = 1 
+
+	if ( folder == ''): 
+		print "Missing destination folder. Assuming current working directory" 
+		folder = "./" 
+
+	if ( item  == '' and ulist == '' ): 
+		print "Missing source. Either supply item (id/url)  OR file with url_list" 
+		print "item=",item,"ulist=",ulist 
+		print "Usage: ",sys.argv[0],"-f|--folder='destination' -i|--item='id'/'watch_url' OR -l|--list='url_list' "
+		sys.exit(2)
+
+	return folder, item, ulist, list_mode 
+
 #---------------------------------------------------------------
 # Main functions 
 
-if( len(sys.argv) !=3 ):
-	print "Usage: ",sys.argv[0],"folder","uid/url" 
-	sys.exit()
+(folder, item, ulist, list_mode)   = parse_arguments(sys.argv[1:]) 
 
-folder = sys.argv[1] 
-uid = get_uid_from_url(sys.argv[2])  
-
-download_stream(uid,folder)
+if(list_mode == 1): 
+	url_list = read_list(ulist) 
+	print "Downloading",len(url_list),"items from list",ulist 
+	for url in url_list:
+		vid = get_vid_from_url(url)
+		download_stream(vid,folder)
+else:
+	print "Downloading one stream",item 
+	vid = get_vid_from_url(item)
+	download_stream(vid,folder)
 
 print "Good bye... Enjoy the video!" 
 
