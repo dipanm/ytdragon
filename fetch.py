@@ -32,8 +32,22 @@ import sys
 import socket 
 import re
 import getopt
+import logging
+import subprocess
 
-def get_watch_page(url):
+global logging_level
+global log_dir 
+global stream_log_path
+
+logging_level = logging.INFO 
+log_dir = "./logs" 
+
+def get_watch_page(vid):
+	logr = logging.getLogger(vid) 
+
+	url = "https://www.youtube.com/watch?v="+vid
+	logr.info("Getting the Watch page: %s",url) 
+
 	page = requests.get(url)
 	tree = html.fromstring(page.text) 
 	t = tree.xpath('//title/text()')
@@ -42,9 +56,8 @@ def get_watch_page(url):
 	parsed_url = urlparse.urlparse(url)
 	vid = urlparse.parse_qs(parsed_url.query)['v'][0]
 
-	print "=================================================================="
-	print "Watch page:",url,"\n","Title:",title
-	print "VID:",vid," Size:",len(page.text),"bytes"
+	logr.info("Title: %s",title)
+	logr.debug("VID:%s Page size: %d bytes",vid,len(page.text))
 
 	return { 'title': title, 'vid': vid, 'tree': tree }  
 
@@ -72,13 +85,15 @@ def get_stream_map_serial(tree):
 	return player_script[p1:p2]
 
 def parse_stream_map(argstr):
+	logr = logging.getLogger(vid) 
+
 	arg_list = json.loads(argstr)
 	encoded_map = arg_list['args']['url_encoded_fmt_stream_map'].split(",") 
 	encoded_map_adp = arg_list['args']['adaptive_fmts'].split(",")
 
 	res_index = { 'small': '240', 'medium': '360', 'high': '480', 'hd720': '720', '1440p': '1440', '1080p': '1080'  } 
 
-	print "Media stream options: Std:",len(encoded_map),"ADP:",len(encoded_map_adp)
+	logr.info("\nMedia stream options: Std: %d ADP: %d",len(encoded_map),len(encoded_map_adp))
 	fmt_stream_map = list()
 	for smap in encoded_map:
 		fmt_map_list = smap.split("&") 
@@ -136,7 +151,7 @@ def parse_stream_map(argstr):
 			elif media == "audio":
 				adp_stream_map_a.append(adp_map)
 			else:
-				print "unknown media ...."+ media 
+				logr.warning("unknown media ....%s",media) 
 			
 	adp_stream_map_v = sorted(adp_stream_map_v, key= lambda k: int(k['res']), reverse=True) 
 	adp_stream_map_a = sorted(adp_stream_map_a, key= lambda k: int(k['bitrate']), reverse=True) 
@@ -144,23 +159,27 @@ def parse_stream_map(argstr):
 	return { 'std': fmt_stream_map, 'adp_v': adp_stream_map_v, 'adp_a': adp_stream_map_a }
 
 def print_smap_detailed(map_name,smap):
-	print map_name,":",len(smap)," #############################################"
+	logr = logging.getLogger(vid) 
+
+	logr.debug("%s : %d #############################################",map_name,len(smap)) 
 	i = 1; 
 	for s in smap:
-		print i,"-----------------------------------" 
+		logr.debug("%d -----------------------------------",i) 
 		for key in sorted(s):
-			print key,":    ",s[key]
+			logr.debug("%s,:   %s",key,s[key]) 
 		i += 1
 		
 def print_smap_abridged(map_name,smap):
-	print map_name,"Total:  ",len(smap),"  ----------------------------------------------------- " 
+	logr = logging.getLogger(vid) 
+
+	logr.info("%s Total: %d -----------------------------------------------------",map_name,len(smap))
 	for s in smap:
 		if s['media'] == "audio-video":
-			print s['quality'],"("+str(s['res'])+"p)","[",s['type'],"]"
+			logr.info("%s (%sp) [%s]",s['quality'],str(s['res']),s['type']) 
 		if s['media'] == "video":
-			print s['quality_label'],"(",s['size'],")","[",s['type'],"]"
+			logr.info("%s (%sp) [%s]",s['quality_label'],str(s['size']),s['type']) 
 		if s['media'] == "audio":
-			print int(s['bitrate'])/1024,"kbps","[",s['type'],"]"
+			logr.info("%s kbps, [%s]",int(s['bitrate'])/1024,s['type']) 
 
 def print_stream_map_detailed(stream_map):
 	print_smap_detailed("Standard",stream_map['std'])
@@ -175,6 +194,8 @@ def print_stream_map_abridged(stream_map):
 
 
 def dlProgress(count, blockSize, totalSize):
+	logr = logging.getLogger(vid) 
+
 	if(totalSize > 0):
 		percent = int(count*blockSize*100/totalSize)
 	else: 
@@ -183,9 +204,10 @@ def dlProgress(count, blockSize, totalSize):
 	count_p = totalSize/blockSize/100+1
 	disp_interval = 5
 	if(count == 0):
-		print "Filesize",totalSize,"Bytes"
+		logr.info("Filesize %d Bytes",totalSize) 
 	if((count % (count_p*disp_interval) == 0) or (percent == 100)):
-		print datetime.datetime.now(),":",percent,"% - ",(count*blockSize)/1000/1000,"of",(totalSize/1000/1000),"MB" 
+		tnow = datetime.datetime.now()
+		logr.info("%s : %d%% - %d of %d MB",str(tnow),percent,(count*blockSize)/1000/1000,(totalSize/1000/1000))
 
 def select_best_stream(stream_map):
 	max_res_std = int(stream_map['std'][0]['res'])
@@ -202,8 +224,10 @@ def select_best_stream(stream_map):
 	return select_map 
 
 def download_streams(page, select_map,folder):
+	logr = logging.getLogger(vid) 
+
 	title = page['title'] 
-	uid = page['uid'] 
+	uid = page['vid'] 
 
 	separated = 1; 	# Assume sepeated content by default. If not, no need to merge 
 	temp_files = dict(); 
@@ -211,52 +235,73 @@ def download_streams(page, select_map,folder):
 		url = smap['url']
 		media = smap['media']
 		if(media == "audio-video"):
-			filename = folder.rstrip('/')+"/"+str(title)+"-"+str(uid)+"."+str(smap['fmt'])
+			filename = folder.rstrip('/')+"/"+str(title)+"_-_"+str(uid)+"."+str(smap['fmt'])
 			separated = 0;
 		else:
 			filename = folder.rstrip('/')+"/"+str(uid)+"."+str(smap['media'])+"."+str(smap['fmt'])
 			temp_files[media] = filename 
 
-
-		print "\nDownloading ",smap['media'],": Destination=",filename
-		print "URL: ",smap['url'],"\n"
+		logr.info("\nDownloading %s : Destination=%s",smap['media'],filename) 
+		logr.debug("URL: %s\n",smap['url']) 
 		t0 = datetime.datetime.now() 
-		#socket.setdefaulttimeout(60)
+		socket.setdefaulttimeout(120)
 		fname, msg = urllib.urlretrieve(url,filename,reporthook=dlProgress) 
 		t1 = datetime.datetime.now() 
-		print "\n",msg,"Time ",t1-t0, "\n---------------------------------" 
+		logr.info("%sTime taken %s\n---------------------------------",msg,str(t1-t0)) 
 	
 	if(separated == 1):
-		outfile = folder.rstrip('/')+"/"+str(title)+"-"+str(uid)+"."+str(smap['fmt'])
-		cmd = "ffmpeg -y -i "+temp_files['video']+" -i "+temp_files['audio']+" -acodec copy \""+outfile+"\""
-		print cmd 
+		outfile = folder.rstrip('/')+"/"+str(title)+"_-_"+str(uid)+"."+str(smap['fmt'])
+		#stream_log_path = log_dir.rstrip('/')+"/"+vid+".log"
+		slog_path = "./ff.log" 
+		cmd = "ffmpeg -y -i "+temp_files['video']+" -i "+temp_files['audio']+" -acodec copy \""+outfile+"\" >ff.log"
+		logr.info(cmd) 
+		#with open(slog_path , 'a') as out:
+		#    return_code = subprocess.call(cmd, stdout=out) 
 		os.system(cmd)
-		print "\nRemoving temp files"
+
+		logr.info("\nRemoving temp files") 
 		for key in temp_files:
-			print key,"file:",temp_files[key]
-			os.remove(temp_files[key]) 
-		print "-----------------------------------" 
+			logr.info("%s file: %s",key,temp_files[key]) 
+		#	os.remove(temp_files[key]) 
+		logr.info("-----------------------------------") 
 
-def download_stream(vid,folder):
-	
-	url = "https://www.youtube.com/watch?v="+vid
+def setup_logger(vid):
+	if not os.path.exists(log_dir):
+	    os.makedirs(log_dir)
+	stream_log_path = log_dir.rstrip('/')+"/"+vid+".log"
+	logr = logging.getLogger(vid) 
+	sfH = logging.FileHandler(stream_log_path)
+	sfH.setLevel(logging.DEBUG)
+	#sfF = logging.Formatter('%(levelname)s:%(message)s') 
+	#sfH.setFormatter(sfF) 
+	logr.addHandler(sfH) 
+	logr.propagate = False 
 
-	watch_page = get_watch_page(url) 
-	print "\n" 
+	logreq = logging.getLogger("requests") 
+	logreq.addHandler(sfH)  
+	logreq.propagate = False 
+
+
+def download_item(vid,folder):
+	setup_logger(vid) 
+	logr = logging.getLogger(vid) 
+
+	logr.info("==================================================================")
+	logr.info("Begining to fetch item %s : %s",vid,str(datetime.datetime.now()))
+
+	watch_page = get_watch_page(vid) 
 	argstr =  get_stream_map_serial(watch_page['tree'])
 	stream_map = parse_stream_map(argstr)
 
-	#print_stream_map_detailed(stream_map)
 	print_stream_map_abridged(stream_map)
+	print_stream_map_detailed(stream_map)
 
 	select_map = select_best_stream(stream_map) 
-	print "\n" 
 	print_smap_abridged("Selected",select_map)
 
 	download_streams(watch_page,select_map,folder)
 
 	return
-
 
 def get_vid_from_url(string):
 	if re.match('^(http|https)://', string):
@@ -272,7 +317,6 @@ def get_vid_from_url(string):
 	return vid 
  
 def read_list(listfile):
-
 	i=0
 	url_list = list() 
 	lf  = open(listfile, "r")
@@ -293,12 +337,11 @@ def parse_arguments(argv):
 	try:
 		opts, args = getopt.getopt(argv,"f:i:l:",["item=","list="])
 	except getopt.GetoptError:
-		print "Usage: ",sys.argv[0],"-f|--folder='destination' -i|--item='id'/'watch_url' OR -l|--list='url_list' "
+		logr.info("Usage: %s -f|--folder='destination' -i|--item='id'/'watch_url' OR -l|--list='url_list'",sys.argv[0])
 		sys.exit(2)
 	for opt, arg in opts:
 		if opt in ("-f", "--folder"):
 			folder = arg
-			print "Destination folder", folder 
 		elif opt in ("-i","--item"):
 			item = arg 
 			list_mode = 0 
@@ -307,13 +350,13 @@ def parse_arguments(argv):
 			list_mode = 1 
 
 	if ( folder == ''): 
-		print "Missing destination folder. Assuming current working directory" 
+		logr.info("Missing destination folder. Assuming current working directory") 
 		folder = "./" 
 
 	if ( item  == '' and ulist == '' ): 
-		print "Missing source. Either supply item (id/url)  OR file with url_list" 
-		print "item=",item,"ulist=",ulist 
-		print "Usage: ",sys.argv[0],"-f|--folder='destination' -i|--item='id'/'watch_url' OR -l|--list='url_list' "
+		logr.info("Missing source. Either supply item (id/url)  OR file with url_list") 
+		logr.info("item=%s ulist=%s",item,ulist) 
+		logr.info("Usage: %s -f|--folder='destination' -i|--item='id'/'watch_url' OR -l|--list='url_list'",sys.argv[0])
 		sys.exit(2)
 
 	return folder, item, ulist, list_mode 
@@ -321,18 +364,24 @@ def parse_arguments(argv):
 #---------------------------------------------------------------
 # Main functions 
 
+logging.basicConfig(filename='ytdragon.log',format='%(asctime)s:[%(levelname)s]:%(message)s',level=logging_level)
+logr = logging.getLogger('') 
+logr.addHandler(logging.StreamHandler()) 
+
 (folder, item, ulist, list_mode)   = parse_arguments(sys.argv[1:]) 
+
+logr.info("Destination folder %s",folder) 
 
 if(list_mode == 1): 
 	url_list = read_list(ulist) 
-	print "Downloading",len(url_list),"items from list",ulist 
+	logr.info("Downloading %d items from list %s",len(url_list),ulist) 
 	for url in url_list:
 		vid = get_vid_from_url(url)
-		download_stream(vid,folder)
+		download_item(vid,folder)
 else:
-	print "Downloading one stream",item 
+	logr.info("Downloading one stream %s",item)  
 	vid = get_vid_from_url(item)
-	download_stream(vid,folder)
+	download_item(vid,folder)
 
-print "Good bye... Enjoy the video!" 
+logr.info("Good bye... Enjoy the video!") 
 
