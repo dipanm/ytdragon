@@ -34,6 +34,7 @@ import re
 import getopt
 import logging
 import subprocess
+import StringIO
 
 global logging_level
 global log_dir 
@@ -273,6 +274,31 @@ def select_best_stream(stream_map):
 	#select_map.append(stream_map['std'][0]);
 	return select_map 
 
+def combine_streams(temp_files,outfile,remove_temp_files): 
+	logr = logging.getLogger(vid)
+
+	cmd = ["ffmpeg","-y","-i",temp_files['video'],"-i",temp_files['audio'],"-acodec","copy","-vcodec","copy",outfile]
+	
+	proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=False) 
+	proc_out, _ = proc.communicate() 
+
+	logr.info(proc_out) 
+	return_code = proc.wait()
+
+	if(return_code == 0):
+		logr.info("\nFFMPEG conversion completed successfully\n")
+	else: 
+		logr.info("\nFFMPEG conversion completed with error code. Not deleting the downloaded files.\n")
+		remove_temp_files = 0
+		
+	if(remove_temp_files): 
+		logr.info("Removing temp files") 
+		for key in temp_files:
+			logr.info("%s file: %s",key,temp_files[key]) 
+			os.remove(temp_files[key]) 
+		logr.info("-----------------------------------") 
+		
+
 def download_streams(page, select_map,folder):
 	logr = logging.getLogger(vid) 
 
@@ -280,7 +306,6 @@ def download_streams(page, select_map,folder):
 	uid = page['vid'] 
 	out_fmt = "mp4"
  
-
 	separated = 1; 	# Assume sepeated content by default. If not, no need to merge 
 	temp_files = dict(); 
 	for smap in select_map:
@@ -302,21 +327,9 @@ def download_streams(page, select_map,folder):
 		logr.info("%sTime taken %s\n---------------------------------",msg,str(t1-t0)) 
 	
 	if(separated == 1):
-		#outfile = folder.rstrip('/')+"/"+str(title)+"_-_"+str(uid)+"."+str(smap['fmt'])
 		outfile = folder.rstrip('/')+"/"+str(title)+"_-_"+str(uid)+"."+out_fmt 
-		#stream_log_path = log_dir.rstrip('/')+"/"+vid+".log"
-		slog_path = "./ff.log" 
-		cmd = "ffmpeg -y -i "+temp_files['video']+" -i "+temp_files['audio']+" -acodec copy \""+outfile+"\" >ff.log"
-		logr.info(cmd) 
-		#with open(slog_path , 'a') as out:
-		#    return_code = subprocess.call(cmd, stdout=out) 
-		os.system(cmd)
+		combine_streams(temp_files,outfile,0)
 
-		logr.info("\nRemoving temp files") 
-		for key in temp_files:
-			logr.info("%s file: %s",key,temp_files[key]) 
-		#	os.remove(temp_files[key]) 
-		logr.info("-----------------------------------") 
 
 def setup_logger(vid):
 	if not os.path.exists(log_dir):
