@@ -238,19 +238,21 @@ def dlProgress(count, blockSize, totalSize):
 def select_captions(caption_map):
 	logr = logging.getLogger(vid) 
 
-	logr.info("in select caption")
+	logr.info("Selecting caption")
 
 	if(len(caption_map) > 0):
-		for cmap in caption_map:
-			if 'en' not in cmap['lang']:
-				logr.info("cmp %s not needed",str(cmap))
+		select_map = [ cmap for cmap in caption_map if 'en' in cmap['lang'] ] 
+		caption_map = select_map 
+
 	if (len(caption_map) > 1):
-		for cmap in caption_map:
+		print_smap_abridged("Filtered captions",caption_map)
+		while cmap in caption_map:
 			if 'auto' in cmap['lang']:
 				del caption_map[cmap] 
 			if(len(caption_map) == 1):
 				return caption_map[0]
 		return caption_map[0]
+
 	elif(len(caption_map) == 1):
 		return caption_map[0]
 	else:
