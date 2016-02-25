@@ -138,8 +138,8 @@ def parse_stream_map(argstr):
 			if pair[0] == "quality":
 				adp_map.update({'res':res_index[pair[1]]}) 
 			if pair[0] == "size": 
-				resl, resr = pair[1].split("x")
-				adp_map.update({'res':max(int(resl),int(resr))}) 
+				resw, resh = pair[1].split("x")
+				adp_map.update({'res':int(resh)}) 
 			if pair[0] == "type":
 				mime = ((pair[1].split(";"))[0])
 				media, fmt  = mime.split("/")
@@ -193,20 +193,23 @@ def print_smap_detailed(map_name,smap):
 		for key in sorted(s):
 			logr.debug("%s:   %s",key,s[key]) 
 		i += 1
-		
+
+def smap_to_str(s):
+	if s['media'] == "audio-video":
+		return '[%s] %s(%sp);%s'%(s['media'],s['quality'],str(s['res']),s['type']) 
+	if s['media'] == "video":
+		return '[%s] %s(%sp);%s'%(s['media'],s['quality_label'],str(s['size']),s['type']) 
+	if s['media'] == "audio":
+		return '[%s] %s kbps;%s'%(s['media'],int(s['bitrate'])/1024,s['type']) 
+	if s['media'] == "caption":
+		return '[%s] %s, %s :%s'%(s['media'],s['lang'],s['fmt'],s['name']) 
+	
 def print_smap_abridged(map_name,smap):
 	logr = logging.getLogger(vid) 
 
 	logr.info("%s Total: %d -----------------------------------------------------",map_name,len(smap))
 	for s in smap:
-		if s['media'] == "audio-video":
-			logr.info("%s (%sp) [%s]",s['quality'],str(s['res']),s['type']) 
-		if s['media'] == "video":
-			logr.info("%s (%sp) [%s]",s['quality_label'],str(s['size']),s['type']) 
-		if s['media'] == "audio":
-			logr.info("%s kbps, [%s]",int(s['bitrate'])/1024,s['type']) 
-		if s['media'] == "caption":
-			logr.info("%s %s, [%s]",s['lang'],s['fmt'],s['name']) 
+		logr.info(smap_to_str(s))
 
 def print_stream_map_detailed(stream_map):
 	print_smap_detailed("Standard",stream_map['std'])
@@ -282,6 +285,7 @@ def select_best_stream(stream_map):
 
 def combine_streams(temp_files,outfile,remove_temp_files): 
 	logr = logging.getLogger(vid)
+	logm = logging.getLogger('main') 
 
 	cmd = ["ffmpeg","-y","-i",temp_files['video'],"-i",temp_files['audio'],"-acodec","copy","-vcodec","copy",outfile]
 	
@@ -293,8 +297,10 @@ def combine_streams(temp_files,outfile,remove_temp_files):
 
 	if(return_code == 0):
 		logr.info("\nFFMPEG conversion completed successfully\n")
+		logm.info("Final av: %s",outfile)
 	else: 
-		logr.info("\nFFMPEG conversion completed with error code. Not deleting the downloaded files.\n")
+		logr.error("\nFFMPEG conversion completed with error code. Not deleting the downloaded files.\n")
+		logm.error("\nFFMPEG conversion completed with error code.")
 		remove_temp_files = 0
 		
 	if(remove_temp_files): 
@@ -316,6 +322,8 @@ def convert_time_format(ftime):
 
 def download_caption(page, select_map,folder):
 	logr = logging.getLogger(vid) 
+	logm = logging.getLogger('main') 
+
 	title = page['title'] 
 	uid = page['vid'] 
 	path = folder.rstrip('/')+"/"+str(title)+"_-_"+str(uid)+"."+"srt"
@@ -339,11 +347,14 @@ def download_caption(page, select_map,folder):
 				f.write('%s --> %s\n'%(start, dur))
 				f.write(hp.unescape(t).encode(sys.getfilesystemencoding()))
 				f.write('\n\n')
+			logr.info("Saved Caption %s\n",path) 
+			logm.info("%s => %s",smap_to_str(smap),path) 
 			break;
 
 
 def download_streams(page, select_map,folder):
 	logr = logging.getLogger(vid) 
+	logm = logging.getLogger('main') 
 
 	title = page['title'] 
 	uid = page['vid'] 
@@ -363,6 +374,7 @@ def download_streams(page, select_map,folder):
 			filename = folder.rstrip('/')+"/"+str(uid)+"."+str(smap['media'])+"."+str(smap['fmt'])
 			temp_files[media] = filename 
 
+		logm.info("%s => %s",smap_to_str(smap),filename) 
 		logr.info("\nDownloading %s : Destination=%s",smap['media'],filename) 
 		logr.debug("URL: %s\n",smap['url']) 
 		t0 = datetime.datetime.now() 
@@ -373,7 +385,7 @@ def download_streams(page, select_map,folder):
 	
 	if(separated == 1):
 		outfile = folder.rstrip('/')+"/"+str(title)+"_-_"+str(uid)+"."+out_fmt 
-		combine_streams(temp_files,outfile,0)
+		combine_streams(temp_files,outfile,1)
 
 
 def setup_logger(vid):
@@ -396,6 +408,7 @@ def setup_logger(vid):
 def download_item(vid,folder):
 	setup_logger(vid) 
 	logr = logging.getLogger(vid) 
+	logm = logging.getLogger('main') 
 
 	logr.info("==================================================================")
 	logr.info("Begining to fetch item %s : %s",vid,str(datetime.datetime.now()))
@@ -410,12 +423,15 @@ def download_item(vid,folder):
 	select_map = select_best_stream(stream_map) 
 	print_smap_abridged("Selected",select_map)
 
+	logm.info("Downloading Vid: %s [%s]",watch_page['vid'],watch_page['title']) 
 	download_streams(watch_page,select_map,folder)
 	download_caption(watch_page,select_map,folder)
 
 	return
 
 def get_vid_from_url(string):
+	if(string[0] == '?'):
+		return '?' 
 	if re.match('^(http|https)://', string):
 		url = string
 		para = url.split('?')[1].split(",")
@@ -477,7 +493,7 @@ def parse_arguments(argv):
 # Main functions 
 
 logging.basicConfig(filename='ytdragon.log',format='%(asctime)s:[%(levelname)s]:%(message)s',level=logging_level)
-logr = logging.getLogger('') 
+logr = logging.getLogger('main') 
 logr.addHandler(logging.StreamHandler()) 
 
 (folder, item, ulist, list_mode)   = parse_arguments(sys.argv[1:]) 
@@ -487,11 +503,18 @@ logr.info("Destination folder %s",folder)
 if(list_mode == 1): 
 	url_list = read_list(ulist) 
 	logr.info("Downloading %d items from list %s",len(url_list),ulist) 
+	i = 0
 	for url in url_list:
+		i = i+1
 		vid = get_vid_from_url(url)
-		download_item(vid,folder)
+		if(vid == '?'): 
+			logr.info("Skipping item\t[%d] %s",i,url) 
+			continue
+		else: 
+			#logr.info("Downloading item\t[%d] %s",i,vid) 
+			download_item(vid,folder)
 else:
-	logr.info("Downloading one stream %s",item)  
+	logr.info("Downloading one item %s",item)  
 	vid = get_vid_from_url(item)
 	download_item(vid,folder)
 
