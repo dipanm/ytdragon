@@ -36,6 +36,7 @@ import logging
 import subprocess
 import StringIO
 import urllib2
+import string
 
 from xml.dom import minidom
 from HTMLParser import HTMLParser
@@ -47,6 +48,23 @@ global stream_log_path
 logging_level = logging.DEBUG
 log_dir = "./logs" 
 
+def removeNonAscii(s): return "".join(filter(lambda x: ord(x)<128, s))
+
+def pathsafe(s): 
+	keepcharacters = (' ','.','_')
+    	return "".join(c for c in s if c.isalnum() or c in keepcharacters).rstrip()
+
+def clean_up_title(title):
+	title = title.replace('\n','').rsplit('-',1)[0].strip() 
+	title = removeNonAscii(title) 
+
+	printable = set(string.printable)
+	title = filter(lambda x: x in printable, title)
+
+	title = pathsafe(title) 
+
+	return title 
+
 def get_watch_page(vid):
 	logr = logging.getLogger(vid) 
 
@@ -56,7 +74,8 @@ def get_watch_page(vid):
 	page = requests.get(url)
 	tree = html.fromstring(page.text) 
 	t = tree.xpath('//title/text()')
-	title = t[0].replace('\n','').rsplit('-',1)[0].strip() 
+	
+	title = clean_up_title(t[0]) 
 
 	parsed_url = urlparse.urlparse(url)
 	vid = urlparse.parse_qs(parsed_url.query)['v'][0]
