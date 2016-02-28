@@ -2,14 +2,19 @@
 
 #--------------------------------------------------------------------------------------------
 # Wish list 
+# 	- get rid of ssl error 
+#	- skip webm - pirorities mp4 (at least not under ADP) 
 #	- deal with network failures. 
 #	- deal with resume on socket. (resume partial downloads) 
+#	- deal with youtube 404
 #	- maintain a trace and don't redownload what you have already got. 
+# 	- skip what is already downloaded (how to keep the tab of it?) 
 #	- you can also check if the file is physically present. 
 #	- needs to see that duration available locally matches with what is claimed by YT
+#	- list control - follow list, pause, stop and resume post what is finished. 
 #	- maintain csv generator that can keep the trace. 
 #	- read list file which can be a CSV - as extracted by channel decoders / playlist decoders etc. 
-#	- mark column that will allow users to select/deselect files required to download 
+#	- mark column that will allow users to select/deselect files required to download (?) 
 #	- parallel thread downloading 
 #	- proper logging on per download basis. (vid.log) independent of stdout for basic purpose. 
 #	- bring ffmpeg output to perstream log 
@@ -17,6 +22,7 @@
 #	- generalize the output file format 
 #	- downalod_stream function should provide data of actual status and details of download (put it to trace)
 #	- get watch page to retrive the play duration - dont' need to downloard the full thing for it. 
+#	- download captions and convert it to srt that VLC can play 
 #--------------------------------------------------------------------------------------------
 
 from lxml import html 
@@ -41,12 +47,52 @@ import string
 from xml.dom import minidom
 from HTMLParser import HTMLParser
 
-global logging_level
-global log_dir 
-global stream_log_path
+### User Config Variable ----------------------------
 
-logging_level = logging.DEBUG
-log_dir = "./logs" 
+quite = False 
+enable_line_log = True 
+line_log_path  = "./ytdragon.log" 
+enable_item_log  = True 
+itemlog_path = "./logs"
+
+#### -- Logging Related Functions -------------------
+
+def setup_main_logger():
+	logm = logging.getLogger() 	# Basic level is DEBUG only to allow other handlers to work 
+	logm.setLevel(logging.DEBUG) 
+
+	cfh = logging.StreamHandler()
+	if(quite): 
+		cfh.setLevel(logging.WARN)
+	else: 
+		cfh.setLevel(logging.INFO)
+	logm.addHandler(cfh) 
+
+	if(enable_line_log): 
+		ifh = logging.FileHandler(line_log_path,mode='a')
+		ifh.setLevel(logging.INFO)
+		iff = logging.Formatter('%(asctime)s:[%(levelname)s]:%(message)s')
+		ifh.setFormatter(iff)
+		logm.addHandler(ifh)
+ 
+	return logm
+	
+def setup_item_logger(vid):
+	logr = logging.getLogger(vid) 
+
+	if(enable_item_log):
+		if not os.path.exists(itemlog_path):
+			os.makedirs(itemlog_path)	
+		logr.addHandler(logging.FileHandler(itemlog_path.rstrip('/')+"/"+vid+".log")) 
+		logr.setLevel(logging.DEBUG)
+	else: 
+		logr.addHandler(logging.NullHandler())
+
+	logr.propagate = True 	# Error and Info will reflect to the root logger as well 
+	return logr 
+
+
+#### ------------------------------------------------
 
 def removeNonAscii(s): return "".join(filter(lambda x: ord(x)<128, s))
 
@@ -69,7 +115,7 @@ def get_watch_page(vid):
 	logr = logging.getLogger(vid) 
 
 	url = "https://www.youtube.com/watch?v="+vid
-	logr.info("Getting the Watch page: %s",url) 
+	logr.debug("Getting the page: %s",url) 
 
 	page = requests.get(url)
 	tree = html.fromstring(page.text) 
@@ -80,8 +126,7 @@ def get_watch_page(vid):
 	parsed_url = urlparse.urlparse(url)
 	vid = urlparse.parse_qs(parsed_url.query)['v'][0]
 
-	logr.info("Title: %s",title)
-	logr.debug("VID:%s Page size: %d bytes",vid,len(page.text))
+	logr.debug("VID:[%s] Title:'%s' %d bytes",vid,title,len(page.text))
 
 	return { 'title': title, 'vid': vid, 'tree': tree }  
 
@@ -115,9 +160,9 @@ def parse_stream_map(argstr):
 	encoded_map = arg_list['args']['url_encoded_fmt_stream_map'].split(",") 
 	encoded_map_adp = arg_list['args']['adaptive_fmts'].split(",")
 	
-	res_index = { 'small': '240', 'medium': '360', 'high': '480', 'hd720': '720', '1440p': '1440', '1080p': '1080'  } 
+	res_index = { 'small': '240', 'medium': '360', 'high': '480', 'large': '480', 'hd720': '720', '1440p': '1440', '1080p': '1080'  } 
 
-	logr.info("\nMedia stream options: Std: %d ADP: %d",len(encoded_map),len(encoded_map_adp))
+	logr.debug("\nMedia stream options: Std: %d ADP: %d",len(encoded_map),len(encoded_map_adp))
 	fmt_stream_map = list()
 	for smap in encoded_map:
 		fmt_map_list = smap.split("&") 
@@ -226,9 +271,9 @@ def smap_to_str(s):
 def print_smap_abridged(map_name,smap):
 	logr = logging.getLogger(vid) 
 
-	logr.info("%s Total: %d -----------------------------------------------------",map_name,len(smap))
+	logr.debug("%s Total: %d -----------------------------------------------------",map_name,len(smap))
 	for s in smap:
-		logr.info(smap_to_str(s))
+		logr.debug(smap_to_str(s))
 
 def print_stream_map_detailed(stream_map):
 	print_smap_detailed("Standard",stream_map['std'])
@@ -255,16 +300,16 @@ def dlProgress(count, blockSize, totalSize):
 	count_p = totalSize/blockSize/100+1
 	disp_interval = 5
 	if(count == 0):
-		logr.info("Filesize %d Bytes",totalSize) 
+		logr.debug("Filesize %d Bytes",totalSize) 
 	if(totalSize > 1000*1000): 
 		if((count % (count_p*disp_interval) == 0) or (percent == 100)):
 			tnow = datetime.datetime.now()
-			logr.info("%s : %d%% - %d of %d MB",str(tnow),percent,(count*blockSize)/1000/1000,(totalSize/1000/1000))
+			logr.debug("%s : %d%% - %d of %d MB",str(tnow),percent,(count*blockSize)/1000/1000,(totalSize/1000/1000))
 
 def select_captions(caption_map):
 	logr = logging.getLogger(vid) 
 
-	logr.info("Selecting caption")
+	logr.debug("Selecting caption")
 
 	if(len(caption_map) > 0):		# select captions of choosen lang only - remove rest 
 		select_map = [ cmap for cmap in caption_map if 'en' in cmap['lang'] ] 
@@ -303,31 +348,28 @@ def select_best_stream(stream_map):
 	return select_map 
 
 def combine_streams(temp_files,outfile,remove_temp_files): 
+	logm = logging.getLogger() 
 	logr = logging.getLogger(vid)
-	logm = logging.getLogger('main') 
 
 	cmd = ["ffmpeg","-y","-i",temp_files['video'],"-i",temp_files['audio'],"-acodec","copy","-vcodec","copy",outfile]
 	
 	proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=False) 
 	proc_out, _ = proc.communicate() 
 
-	logr.info(proc_out) 
+	logr.debug(proc_out) 
 	return_code = proc.wait()
 
 	if(return_code == 0):
-		logr.info("\nFFMPEG conversion completed successfully\n")
-		logm.info("Final av: %s",outfile)
+		logr.info("\nFFMPEG Muxing successful. Saved file: %s\n",outfile)
 	else: 
 		logr.error("\nFFMPEG conversion completed with error code. Not deleting the downloaded files.\n")
-		logm.error("\nFFMPEG conversion completed with error code.")
 		remove_temp_files = 0
 		
 	if(remove_temp_files): 
-		logr.info("Removing temp files") 
+		logr.debug("Removing temp files") 
 		for key in temp_files:
-			logr.info("%s file: %s",key,temp_files[key]) 
+			logr.debug("%s file: %s",key,temp_files[key]) 
 			os.remove(temp_files[key]) 
-		logr.info("-----------------------------------") 
 		
 
 def convert_time_format(ftime):
@@ -341,7 +383,6 @@ def convert_time_format(ftime):
 
 def download_caption(page, select_map,folder):
 	logr = logging.getLogger(vid) 
-	logm = logging.getLogger('main') 
 
 	title = page['title'] 
 	uid = page['vid'] 
@@ -366,14 +407,12 @@ def download_caption(page, select_map,folder):
 				f.write('%s --> %s\n'%(start, dur))
 				f.write(hp.unescape(t).encode(sys.getfilesystemencoding()))
 				f.write('\n\n')
-			logr.info("Saved Caption %s\n",path) 
-			logm.info("%s => %s",smap_to_str(smap),path) 
+			logr.info("Saved Caption %s => %s\n",smap_to_str(smap),path) 
 			break;
 
 
 def download_streams(page, select_map,folder):
 	logr = logging.getLogger(vid) 
-	logm = logging.getLogger('main') 
 
 	title = page['title'] 
 	uid = page['vid'] 
@@ -393,56 +432,40 @@ def download_streams(page, select_map,folder):
 			filename = folder.rstrip('/')+"/"+str(uid)+"."+str(smap['media'])+"."+str(smap['fmt'])
 			temp_files[media] = filename 
 
-		logm.info("%s => %s",smap_to_str(smap),filename) 
-		logr.info("\nDownloading %s : Destination=%s",smap['media'],filename) 
+		logr.info("%s => %s",smap_to_str(smap),filename) 
+		logr.debug("\nDownloading %s : Destination=%s",smap['media'],filename) 
 		logr.debug("URL: %s\n",smap['url']) 
 		t0 = datetime.datetime.now() 
 		socket.setdefaulttimeout(120)
 		fname, msg = urllib.urlretrieve(url,filename,reporthook=dlProgress) 
 		t1 = datetime.datetime.now() 
-		logr.info("%sTime taken %s\n---------------------------------",msg,str(t1-t0)) 
+		logr.debug("%sTime taken %s\n---------------------------------",msg,str(t1-t0)) 
 	
 	if(separated == 1):
 		outfile = folder.rstrip('/')+"/"+str(title)+"_-_"+str(uid)+"."+out_fmt 
 		combine_streams(temp_files,outfile,1)
 
+	logr.debug("Fetch Complete [%s] '%s' @ %s ----------------",vid,title,str(datetime.datetime.now()))
 
-def setup_logger(vid):
-	if not os.path.exists(log_dir):
-	    os.makedirs(log_dir)
-	stream_log_path = log_dir.rstrip('/')+"/"+vid+".log"
-	logr = logging.getLogger(vid) 
-	sfH = logging.FileHandler(stream_log_path)
-	sfH.setLevel(logging.DEBUG)
-	#sfF = logging.Formatter('%(levelname)s:%(message)s') 
-	#sfH.setFormatter(sfF) 
-	logr.addHandler(sfH) 
-	logr.propagate = False 
-
-	logreq = logging.getLogger("requests") 
-	logreq.addHandler(sfH)  
-	logreq.propagate = False 
-
+#---------------------------------------------------------------
+# Top level functions for Main 
 
 def download_item(vid,folder):
-	setup_logger(vid) 
-	logr = logging.getLogger(vid) 
-	logm = logging.getLogger('main') 
+	logr = setup_item_logger(vid) 
 
-	logr.info("==================================================================")
-	logr.info("Begining to fetch item %s : %s",vid,str(datetime.datetime.now()))
+	logr.debug("Begining to fetch item %s : %s",vid,str(datetime.datetime.now()))
 
 	watch_page = get_watch_page(vid) 
 	argstr =  get_stream_map_serial(watch_page['tree'])
 	stream_map = parse_stream_map(argstr)
 
-	print_stream_map_detailed(stream_map)
+	#print_stream_map_detailed(stream_map)
 	print_stream_map_abridged(stream_map)
 
 	select_map = select_best_stream(stream_map) 
 	print_smap_abridged("Selected",select_map)
 
-	logm.info("Downloading Vid: %s [%s]",watch_page['vid'],watch_page['title']) 
+	logr.info("Downloading Item:[%s] '%s'",watch_page['vid'],watch_page['title']) 
 	download_streams(watch_page,select_map,folder)
 	download_caption(watch_page,select_map,folder)
 
@@ -474,7 +497,12 @@ def read_list(listfile):
 
 	return  url_list  
 
+#---------------------------------------------------------------
+# Support functions for Main 
+
 def parse_arguments(argv): 
+	logm = logging.getLogger() 
+	usage_str = "Usage: %s -f|--folder='destination' -i|--item='id'/'watch_url' OR -l|--list='url_list'"
 	vid = '' 
 	item = ''
 	ulist = '' 
@@ -483,9 +511,15 @@ def parse_arguments(argv):
 
 	try:
 		opts, args = getopt.getopt(argv,"f:i:l:",["item=","list="])
-	except getopt.GetoptError:
-		logr.info("Usage: %s -f|--folder='destination' -i|--item='id'/'watch_url' OR -l|--list='url_list'",sys.argv[0])
+	except getopt.GetoptError as err:
+		logm.error("Error in Options: %s",str(err)) 
+		logm.critical(usage_str,sys.argv[0])
 		sys.exit(2)
+	
+	if(len(opts) == 0): 
+		logm.critical(usage_str,sys.argv[0])
+		sys.exit(2) 
+
 	for opt, arg in opts:
 		if opt in ("-f", "--folder"):
 			folder = arg
@@ -497,45 +531,40 @@ def parse_arguments(argv):
 			list_mode = 1 
 
 	if ( folder == ''): 
-		logr.info("Missing destination folder. Assuming current working directory") 
+		logm.warning("Missing destination folder. Assuming './' (current working directory) ") 
 		folder = "./" 
+	else:
+		logm.debug("Destination folder for streams: %s",folder) 
 
 	if ( item  == '' and ulist == '' ): 
-		logr.info("Missing source. Either supply item (id/url)  OR file with url_list") 
-		logr.info("item=%s ulist=%s",item,ulist) 
-		logr.info("Usage: %s -f|--folder='destination' -i|--item='id'/'watch_url' OR -l|--list='url_list'",sys.argv[0])
+		logm.critical("Missing source. Either supply item (id/url)  OR file with url_list") 
+		logm.critical(usage_str,sys.argv[0])
 		sys.exit(2)
 
 	return folder, item, ulist, list_mode 
 
 #---------------------------------------------------------------
-# Main functions 
+# Main function
 
-logging.basicConfig(filename='ytdragon.log',format='%(asctime)s:[%(levelname)s]:%(message)s',level=logging_level)
-logr = logging.getLogger('main') 
-logr.addHandler(logging.StreamHandler()) 
+logm = setup_main_logger() 
 
-(folder, item, ulist, list_mode)   = parse_arguments(sys.argv[1:]) 
-
-logr.info("Destination folder %s",folder) 
+(folder, item, ulist, list_mode) = parse_arguments(sys.argv[1:]) 
 
 if(list_mode == 1): 
 	url_list = read_list(ulist) 
-	logr.info("Downloading %d items from list %s",len(url_list),ulist) 
+	logm.info("Downloading %d items from list %s",len(url_list),ulist) 
 	i = 0
 	for url in url_list:
 		i = i+1
 		vid = get_vid_from_url(url)
 		if(vid == '?'): 
-			logr.info("Skipping item\t[%d] %s",i,url) 
+			logm.warning("Skipping item\t[%d] %s",i,url) 
 			continue
 		else: 
-			#logr.info("Downloading item\t[%d] %s",i,vid) 
 			download_item(vid,folder)
 else:
-	logr.info("Downloading one item %s",item)  
 	vid = get_vid_from_url(item)
 	download_item(vid,folder)
 
-logr.info("Good bye... Enjoy the video!") 
+logm.info("Good bye... Enjoy the video!") 
 
