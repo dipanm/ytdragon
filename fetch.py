@@ -29,7 +29,6 @@ from lxml import html
 import requests 
 
 import json
-import urllib 
 import pprint 
 import datetime
 import urlparse
@@ -41,8 +40,11 @@ import getopt
 import logging
 import subprocess
 import StringIO
-import urllib2
 import string
+import ssl 
+import urllib
+import urllib3
+import certifi
 
 from xml.dom import minidom
 from HTMLParser import HTMLParser
@@ -117,8 +119,10 @@ def get_watch_page(vid):
 	url = "https://www.youtube.com/watch?v="+vid
 	logr.debug("Getting the page: %s",url) 
 
-	page = requests.get(url)
-	tree = html.fromstring(page.text) 
+	response = urllib.urlopen(url)
+	page = response.read()
+
+	tree = html.fromstring(page) 
 	t = tree.xpath('//title/text()')
 	
 	title = clean_up_title(t[0]) 
@@ -126,7 +130,7 @@ def get_watch_page(vid):
 	parsed_url = urlparse.urlparse(url)
 	vid = urlparse.parse_qs(parsed_url.query)['v'][0]
 
-	logr.debug("VID:[%s] Title:'%s' %d bytes",vid,title,len(page.text))
+	logr.debug("VID:[%s] Title:'%s' %d bytes",vid,title,len(page))
 
 	return { 'title': title, 'vid': vid, 'tree': tree }  
 
@@ -392,7 +396,7 @@ def download_caption(page, select_map,folder):
 		media = smap['media']
 		if(media == "caption"):
 			capDom = minidom.parse(
-			urllib2.urlopen(smap['url'])
+			urllib.urlopen(smap['url'])
 			)
 			texts = capDom.getElementsByTagName('text')
 			hp = HTMLParser()
