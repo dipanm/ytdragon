@@ -27,6 +27,7 @@
 #	- downalod_stream function should provide data of actual status and details of download (put it to trace)
 #	- get watch page to retrive the play duration - dont' need to downloard the full thing for it. 
 #	- download captions and convert it to srt that VLC can play 
+#	- prefer p60 over p30 videos
 #--------------------------------------------------------------------------------------------
 
 from lxml import html 
@@ -201,7 +202,7 @@ def parse_stream_map(argstr):
 	fmt_stream_map = list()
 	for smap in encoded_map:
 		fmt_map_list = smap.split("&") 
-		fmt_map = dict({'stream':"std"}) 
+		fmt_map = dict({'stream':"std", 'fps':"30"}) #Keep 30 fps as default. If the key exist, will be overwritten
 		for sm in fmt_map_list:
 			pair = sm.split("=")
 			pair[1] = urllib.unquote(pair[1]).decode('utf8')
@@ -222,13 +223,13 @@ def parse_stream_map(argstr):
 		
 		fmt_stream_map.append(fmt_map)
 
-	fmt_stream_map = sorted(fmt_stream_map, key= lambda k: int(k['res']), reverse=True) 
+	fmt_stream_map = sorted(fmt_stream_map, key= lambda k: (int(k['res'])+int(k['fps'])), reverse=True) 
 
 	adp_stream_map_a = list()
 	adp_stream_map_v = list()
 	for smap in encoded_map_adp:
 		adp_map_list = smap.split("&") 
-		adp_map = dict({'stream':"adp"}) 
+		adp_map = dict({'stream':"adp", 'fps':"30"}) #Keep 30 fps as default. If the key exist, will be overwritten
 		for sm in adp_map_list:
 			pair = sm.split("=")
 			pair[1] = urllib.unquote(pair[1]).decode('utf8')
@@ -257,7 +258,7 @@ def parse_stream_map(argstr):
 			else:
 				logr.warning("unknown media ....%s",media) 
 			
-	adp_stream_map_v = sorted(adp_stream_map_v, key= lambda k: int(k['res']), reverse=True) 
+	adp_stream_map_v = sorted(adp_stream_map_v, key= lambda k: (int(k['res'])+int(k['fps'])), reverse=True) 
 	adp_stream_map_a = sorted(adp_stream_map_a, key= lambda k: int(k['bitrate']), reverse=True) 
 
 	caption_map = list() 
@@ -286,13 +287,13 @@ def parse_stream_map(argstr):
 	page_map = args_para = dict() 
 	page_map['video_id']    = args['video_id']	if(args.has_key('video_id')) else ''
 	page_map['loudness']    = args['loudness']	if(args.has_key('loudness')) else ''
-	page_map['title']       = args['title']	if(args.has_key('title')) else ''
+	page_map['title']       = args['title']		if(args.has_key('title')) else ''
 	page_map['timestamp']   = args['timestamp']	if(args.has_key('timestamp')) else ''
 	page_map['author']      = args['author']	if(args.has_key('author')) else ''
 	page_map['length_sec'] 	= args['length_seconds'] if(args.has_key('length_seconds')) else ''
 	page_map['std_count']   = len(fmt_stream_map) 
-	page_map['adp_v_count']   = len(adp_stream_map_v) 
-	page_map['adp_a_count']   = len(adp_stream_map_a) 
+	page_map['adp_v_count'] = len(adp_stream_map_v) 
+	page_map['adp_a_count'] = len(adp_stream_map_a) 
 	page_map['std']		= fmt_stream_map
 	page_map['adp_v']	= adp_stream_map_v
 	page_map['adp_a']	= adp_stream_map_a
@@ -314,9 +315,9 @@ def print_smap_detailed(map_name,smap):
 
 def smap_to_str(s):
 	if s['media'] == "audio-video":
-		return '[%s] %s(%sp);%s'%(s['media'],s['quality'],str(s['res']),s['type']) 
+		return '[%s] %s (%s);%s'%(s['media'],s['quality'],str(s['res']),s['type']) 
 	if s['media'] == "video":
-		return '[%s] %s(%sp);%s'%(s['media'],s['quality_label'],str(s['size']),s['type']) 
+		return '[%s] %s (%s);%s'%(s['media'],s['quality_label'],str(s['size']),s['type']) 
 	if s['media'] == "audio":
 		return '[%s] %s kbps;%s'%(s['media'],int(s['bitrate'])/1024,s['type']) 
 	if s['media'] == "caption":
@@ -529,7 +530,7 @@ def download_item(vid,folder):
 	else: 
 		logr.debug("Parsing of the page successful ------------") 
 
-	#print_stream_map_detailed(stream_map)
+	print_stream_map_detailed(stream_map)
 	print_stream_map_abridged(stream_map)
 
 	select_map = select_best_stream(stream_map) 
