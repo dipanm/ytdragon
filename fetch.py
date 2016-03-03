@@ -500,7 +500,7 @@ def download_streams(page, select_map,folder):
 		socket.setdefaulttimeout(120)
 		fname, msg = urllib.urlretrieve(url,filename,reporthook=dlProgress) 
 		t1 = datetime.datetime.now() 
-		logr.debug("%sTime taken %s\n---------------------------------",fname,msg,str(t1-t0)) 
+		logr.debug("%sTime taken %s\n---------------------------------",msg,str(t1-t0)) 
 	
 	if(separated == 1):
 		outfile = folder.rstrip('/')+"/"+str(title)+"_-_"+str(uid)+"."+out_fmt 
@@ -524,18 +524,22 @@ def download_item(vid,folder):
 	stream_map = parse_stream_map(argstr)
 
 	if(stream_map['error'] != 0):
+		logr.debug("Error parsing of the page ------------") 
 		return -1
+	else: 
+		logr.debug("Parsing of the page successful ------------") 
 
 	#print_stream_map_detailed(stream_map)
 	print_stream_map_abridged(stream_map)
 
 	select_map = select_best_stream(stream_map) 
 	print_smap_abridged("\nSelected",select_map)
+	logr.debug("\n")
 
-	logr.info("\nDownloading Item:[%s] '%s'",watch_page['vid'],watch_page['title']) 
+	logr.info("Downloading Item:[%s] '%s'",watch_page['vid'],watch_page['title']) 
 	download_streams(watch_page,select_map,folder)
 	download_caption(watch_page,select_map,folder)
-	logr.debug("Fetch Complete [%s] '%s' @ %s ----------------",vid,title,str(datetime.datetime.now()))
+	logr.info("Fetch Complete @ %s ----------------",str(datetime.datetime.now()))
 
 	return
 
