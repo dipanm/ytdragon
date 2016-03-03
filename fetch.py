@@ -7,11 +7,15 @@
 #	- deal with network failures. 
 #	- deal with resume on socket. (resume partial downloads) 
 #	- deal with youtube 404
+#	- don't say 'Enjoy the video' when there is no download.
 #	- maintain a trace and don't redownload what you have already got. 
-# 	- skip what is already downloaded (how to keep the tab of it?) 
+# 	- skip what is already downloaded 
+#	- where and how to keep the trace? what is the file format? 
+#	- capture critical stuff and do clean exit when user presses Ctr+C 
 #	- you can also check if the file is physically present. 
 #	- needs to see that duration available locally matches with what is claimed by YT
 #	- list control - follow list, pause, stop and resume post what is finished. 
+#	- if somethings fail / skip that download item, and go on to next. 
 #	- maintain csv generator that can keep the trace. 
 #	- read list file which can be a CSV - as extracted by channel decoders / playlist decoders etc. 
 #	- mark column that will allow users to select/deselect files required to download (?) 
@@ -45,6 +49,7 @@ import ssl
 import urllib
 import urllib3
 import certifi
+
 
 from xml.dom import minidom
 from HTMLParser import HTMLParser
@@ -120,6 +125,10 @@ def get_watch_page(vid):
 	logr.debug("Getting the page: %s",url) 
 
 	response = urllib.urlopen(url)
+	code = response.getcode() 
+	if(code != 200):
+		logr.error("wrong vid %s\n",vid) 
+		return { 'error' : -1, 'vid' : vid } 
 	page = response.read()
 
 	tree = html.fromstring(page) 
@@ -132,7 +141,7 @@ def get_watch_page(vid):
 
 	logr.debug("VID:[%s] Title:'%s' %d bytes",vid,title,len(page))
 
-	return { 'title': title, 'vid': vid, 'tree': tree }  
+	return { 'title': title, 'vid': vid, 'tree': tree, 'error': 0 }  
 
 def get_stream_map_serial(tree):
 
@@ -157,16 +166,38 @@ def get_stream_map_serial(tree):
 
 	return player_script[p1:p2]
 
+def print_arg_list(arg_list): 
+	logr = logging.getLogger(vid) 
+
+	args = arg_list['args'] 
+	for key in args:
+		logr.debug("[%s]: %s",key,args[key]) 
+
 def parse_stream_map(argstr):
 	logr = logging.getLogger(vid) 
 
 	arg_list = json.loads(argstr)
-	encoded_map = arg_list['args']['url_encoded_fmt_stream_map'].split(",") 
-	encoded_map_adp = arg_list['args']['adaptive_fmts'].split(",")
-	
-	res_index = { 'small': '240', 'medium': '360', 'high': '480', 'large': '480', 'hd720': '720', '1440p': '1440', '1080p': '1080'  } 
 
-	logr.debug("\nMedia stream options: Std: %d ADP: %d",len(encoded_map),len(encoded_map_adp))
+	if not (arg_list.has_key('args')): 
+		logr.critical("The watch page is not a standard youtube page") 
+		return { 'error': -1 } 
+	else:
+		args = arg_list['args'] 	
+
+	encoded_map = list()
+	if( args.has_key('url_encoded_fmt_stream_map') ): 
+		encoded_map = args['url_encoded_fmt_stream_map'].split(",") 
+
+	encoded_map_adp = list() 
+	if( args.has_key('adaptive_fmts') ): 
+		encoded_map_adp = arg_list['args']['adaptive_fmts'].split(",")
+	
+	if( (len(encoded_map) ==0) and (len(encoded_map_adp) == 0)):
+		logr.critical("Unable to find stream_map") 
+		return { 'error': -2 } 
+
+	res_index = {'small':'240','medium':'360','high':'480','large':'480','hd720':'720','1440p':'1440','1080p':'1080'} 
+
 	fmt_stream_map = list()
 	for smap in encoded_map:
 		fmt_map_list = smap.split("&") 
@@ -235,6 +266,8 @@ def parse_stream_map(argstr):
 		for cmap in caption_str:
 			cap_map = dict() 
 			cap = cmap.split("&")
+			if(len(cap) < 2): 
+				continue
 			for c in cap: 
 				c_attrib = c.split("=") 
 				if(c_attrib[0] == 'u'): 
@@ -249,7 +282,24 @@ def parse_stream_map(argstr):
 				cap_map.update({'media':'caption','fmt':'srt'}) 
 			caption_map.append(cap_map)
 
-	return { 'std': fmt_stream_map, 'adp_v': adp_stream_map_v, 'adp_a': adp_stream_map_a, 'caption': caption_map }
+	## ==== All variables ==============
+	page_map = args_para = dict() 
+	page_map['video_id']    = args['video_id']	if(args.has_key('video_id')) else ''
+	page_map['loudness']    = args['loudness']	if(args.has_key('loudness')) else ''
+	page_map['title']       = args['title']	if(args.has_key('title')) else ''
+	page_map['timestamp']   = args['timestamp']	if(args.has_key('timestamp')) else ''
+	page_map['author']      = args['author']	if(args.has_key('author')) else ''
+	page_map['length_sec'] 	= args['length_seconds'] if(args.has_key('length_seconds')) else ''
+	page_map['std_count']   = len(fmt_stream_map) 
+	page_map['adp_v_count']   = len(adp_stream_map_v) 
+	page_map['adp_a_count']   = len(adp_stream_map_a) 
+	page_map['std']		= fmt_stream_map
+	page_map['adp_v']	= adp_stream_map_v
+	page_map['adp_a']	= adp_stream_map_a
+	page_map['caption'] 	= caption_map
+	page_map['error'] 	= 0
+
+	return page_map  
 
 def print_smap_detailed(map_name,smap):
 	logr = logging.getLogger(vid) 
@@ -279,14 +329,25 @@ def print_smap_abridged(map_name,smap):
 	for s in smap:
 		logr.debug(smap_to_str(s))
 
+def print_smap_attribs(stream_map):
+	logr = logging.getLogger(vid) 
+
+	logr.debug("['video_id']   : %s",stream_map['video_id']) 
+	logr.debug("['loudness']   : %s",stream_map['loudness'])
+	logr.debug("['title']      : %s",stream_map['title'])  
+	logr.debug("['timestamp']  : %s",stream_map['timestamp'])
+	logr.debug("['author']     : %s",stream_map['author'])  
+	logr.debug("['length_sec'] : %s",stream_map['length_sec'])
+
 def print_stream_map_detailed(stream_map):
+	print_smap_attribs(stream_map)
 	print_smap_detailed("Standard",stream_map['std'])
 	print_smap_detailed("ADP Video",stream_map['adp_v'])
 	print_smap_detailed("ADP Audio",stream_map['adp_a'])
 	print_smap_detailed("Captions",stream_map['caption'])
-		
 	
 def print_stream_map_abridged(stream_map):
+	print_smap_attribs(stream_map)
 	print_smap_abridged("Standard",stream_map['std'])
 	print_smap_abridged("ADP Video",stream_map['adp_v'])
 	print_smap_abridged("ADP Audio",stream_map['adp_a'])
@@ -313,8 +374,6 @@ def dlProgress(count, blockSize, totalSize):
 def select_captions(caption_map):
 	logr = logging.getLogger(vid) 
 
-	logr.debug("Selecting caption")
-
 	if(len(caption_map) > 0):		# select captions of choosen lang only - remove rest 
 		select_map = [ cmap for cmap in caption_map if 'en' in cmap['lang'] ] 
 		caption_map = select_map 
@@ -334,8 +393,9 @@ def select_captions(caption_map):
 
 
 def select_best_stream(stream_map):
-	max_res_std = int(stream_map['std'][0]['res'])
-	max_res_adp = int(stream_map['adp_v'][0]['res'])
+	logr = logging.getLogger(vid)
+	max_res_std = int(stream_map['std'][0]['res'])	if stream_map['std_count'] > 0 else 0 
+	max_res_adp = int(stream_map['adp_v'][0]['res'])  if stream_map['adp_v_count'] > 0 else 0 
 
 	select_map = list(); 
 	if(max_res_adp > max_res_std):
@@ -348,11 +408,9 @@ def select_best_stream(stream_map):
 	if(caption_map):
 		select_map.append(caption_map)
 
-	#select_map.append(stream_map['std'][0]);
 	return select_map 
 
 def combine_streams(temp_files,outfile,remove_temp_files): 
-	logm = logging.getLogger() 
 	logr = logging.getLogger(vid)
 
 	cmd = ["ffmpeg","-y","-i",temp_files['video'],"-i",temp_files['audio'],"-acodec","copy","-vcodec","copy",outfile]
@@ -430,26 +488,25 @@ def download_streams(page, select_map,folder):
 		if(media == "caption"):
 			continue
 		elif(media == "audio-video"):
-			filename = folder.rstrip('/')+"/"+str(title)+"_-_"+str(uid)+"."+str(smap['fmt'])
+			outfile = filename = folder.rstrip('/')+"/"+str(title)+"_-_"+str(uid)+"."+str(smap['fmt'])
 			separated = 0;
 		else:
 			filename = folder.rstrip('/')+"/"+str(uid)+"."+str(smap['media'])+"."+str(smap['fmt'])
 			temp_files[media] = filename 
 
 		logr.info("%s => %s",smap_to_str(smap),filename) 
-		logr.debug("\nDownloading %s : Destination=%s",smap['media'],filename) 
 		logr.debug("URL: %s\n",smap['url']) 
 		t0 = datetime.datetime.now() 
 		socket.setdefaulttimeout(120)
 		fname, msg = urllib.urlretrieve(url,filename,reporthook=dlProgress) 
 		t1 = datetime.datetime.now() 
-		logr.debug("%sTime taken %s\n---------------------------------",msg,str(t1-t0)) 
+		logr.debug("%sTime taken %s\n---------------------------------",fname,msg,str(t1-t0)) 
 	
 	if(separated == 1):
 		outfile = folder.rstrip('/')+"/"+str(title)+"_-_"+str(uid)+"."+out_fmt 
 		combine_streams(temp_files,outfile,1)
 
-	logr.debug("Fetch Complete [%s] '%s' @ %s ----------------",vid,title,str(datetime.datetime.now()))
+	logr.debug("Stream Downloaded: '%s' @ %s ----------------",vid,outfile,str(datetime.datetime.now()))
 
 #---------------------------------------------------------------
 # Top level functions for Main 
@@ -460,18 +517,25 @@ def download_item(vid,folder):
 	logr.debug("Begining to fetch item %s : %s",vid,str(datetime.datetime.now()))
 
 	watch_page = get_watch_page(vid) 
+	if(watch_page['error'] != 0):
+		return
+
 	argstr =  get_stream_map_serial(watch_page['tree'])
 	stream_map = parse_stream_map(argstr)
+
+	if(stream_map['error'] != 0):
+		return -1
 
 	#print_stream_map_detailed(stream_map)
 	print_stream_map_abridged(stream_map)
 
 	select_map = select_best_stream(stream_map) 
-	print_smap_abridged("Selected",select_map)
+	print_smap_abridged("\nSelected",select_map)
 
-	logr.info("Downloading Item:[%s] '%s'",watch_page['vid'],watch_page['title']) 
+	logr.info("\nDownloading Item:[%s] '%s'",watch_page['vid'],watch_page['title']) 
 	download_streams(watch_page,select_map,folder)
 	download_caption(watch_page,select_map,folder)
+	logr.debug("Fetch Complete [%s] '%s' @ %s ----------------",vid,title,str(datetime.datetime.now()))
 
 	return
 
