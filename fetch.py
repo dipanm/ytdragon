@@ -62,6 +62,7 @@ enable_line_log = True
 line_log_path  = "./ytdragon.log" 
 enable_item_log  = True 
 itemlog_path = "./logs"
+deep_debug = False 
 
 #### -- Logging Related Functions -------------------
 
@@ -132,6 +133,12 @@ def get_watch_page(vid):
 		return { 'error' : -1, 'vid' : vid } 
 	page = response.read()
 
+	if(deep_debug): 
+		fp = open(vid+".html","w") 
+		if(fp): 
+			fp.write(page) 
+			fp.close() 
+
 	tree = html.fromstring(page) 
 	t = tree.xpath('//title/text()')
 	
@@ -145,6 +152,7 @@ def get_watch_page(vid):
 	return { 'title': title, 'vid': vid, 'tree': tree, 'error': 0 }  
 
 def get_stream_map_serial(tree):
+	logr = logging.getLogger(vid) 
 
 	scripts = tree.xpath('//script/text()') 
 	for s in scripts:
@@ -164,6 +172,10 @@ def get_stream_map_serial(tree):
 		p2 += 1
 		if nesting == 0:
 			break;
+	if(deep_debug): 
+		logr.debug("player_script ---------------------------------") 
+		logr.debug(player_script[p1:p2]) 
+		logr.debug("-----------------------------------------------") 
 
 	return player_script[p1:p2]
 
@@ -174,11 +186,22 @@ def print_arg_list(arg_list):
 	for key in args:
 		logr.debug("[%s]: %s",key,args[key]) 
 
+def print_pretty(d,indent=0):
+   logr = logging.getLogger(vid) 
+   for key, value in d.iteritems():
+      if isinstance(value, dict):
+         logr.debug('\t' * indent + "[" + str(key) +"]")
+         print_pretty(value, indent+1)
+      else:
+         logr.debug('\t' * (indent) + str(key) + " : " + str(value))
+
 def parse_stream_map(argstr):
 	logr = logging.getLogger(vid) 
 
 	arg_list = json.loads(argstr)
 
+	if(deep_debug): 
+		print_pretty(arg_list) 
 	if not (arg_list.has_key('args')): 
 		logr.critical("The watch page is not a standard youtube page") 
 		return { 'error': -1 } 
@@ -356,6 +379,7 @@ def print_stream_map_abridged(stream_map):
 
 
 def dlProgress(count, blockSize, totalSize):
+	logm = logging.getLogger() 
 	logr = logging.getLogger(vid) 
 
 	if(totalSize > 0):
@@ -371,6 +395,9 @@ def dlProgress(count, blockSize, totalSize):
 		if((count % (count_p*disp_interval) == 0) or (percent == 100)):
 			tnow = datetime.datetime.now()
 			logr.debug("%s : %d%% - %d of %d MB",str(tnow),percent,(count*blockSize)/1000/1000,(totalSize/1000/1000))
+			#logm.info("%d",percent) 
+			sys.stdout.write("\tDownload progress: %d%%   \r" % (percent) )
+			sys.stdout.flush()
 
 def select_captions(caption_map):
 	logr = logging.getLogger(vid) 
@@ -470,7 +497,7 @@ def download_caption(page, select_map,folder):
 				f.write('%s --> %s\n'%(start, dur))
 				f.write(hp.unescape(t).encode(sys.getfilesystemencoding()))
 				f.write('\n\n')
-			logr.info("Saved Caption %s => %s\n",smap_to_str(smap),path) 
+			logr.info("Saved Caption %s \n\t=> %s\n",smap_to_str(smap),path) 
 			break;
 
 
@@ -495,7 +522,7 @@ def download_streams(page, select_map,folder):
 			filename = folder.rstrip('/')+"/"+str(uid)+"."+str(smap['media'])+"."+str(smap['fmt'])
 			temp_files[media] = filename 
 
-		logr.info("%s => %s",smap_to_str(smap),filename) 
+		logr.info("%s \n\t=> %s",smap_to_str(smap),filename) 
 		logr.debug("URL: %s\n",smap['url']) 
 		t0 = datetime.datetime.now() 
 		socket.setdefaulttimeout(120)
@@ -505,9 +532,9 @@ def download_streams(page, select_map,folder):
 	
 	if(separated == 1):
 		outfile = folder.rstrip('/')+"/"+str(title)+"_-_"+str(uid)+"."+out_fmt 
-		combine_streams(temp_files,outfile,1)
+		combine_streams(temp_files,outfile,0)
 
-	logr.debug("Stream Downloaded: '%s' @ %s ----------------",vid,outfile,str(datetime.datetime.now()))
+	logr.debug("Streams [%s] Downloaded: '%s' @ %s ----------------",vid,outfile,str(datetime.datetime.now()))
 
 #---------------------------------------------------------------
 # Top level functions for Main 
