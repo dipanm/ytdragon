@@ -28,6 +28,8 @@
 #	- get watch page to retrive the play duration - dont' need to downloard the full thing for it. 
 #	- download captions and convert it to srt that VLC can play 
 #	- prefer p60 over p30 videos
+#	- network reconnect should re-establish things
+#	- move to python3
 #--------------------------------------------------------------------------------------------
 
 from lxml import html 
@@ -382,6 +384,9 @@ def dlProgress(count, blockSize, totalSize):
 	logm = logging.getLogger() 
 	logr = logging.getLogger(vid) 
 
+	counter_str = [ "|","/","-","\\"]
+	cstr = counter_str[(count/100)%4] 
+
 	if(totalSize > 0):
 		percent = int(count*blockSize*100/totalSize)
 	else: 
@@ -396,8 +401,9 @@ def dlProgress(count, blockSize, totalSize):
 			tnow = datetime.datetime.now()
 			logr.debug("%s : %d%% - %d of %d MB",str(tnow),percent,(count*blockSize)/1000/1000,(totalSize/1000/1000))
 			#logm.info("%d",percent) 
-			sys.stdout.write("\tDownload progress: %d%%   \r" % (percent) )
-			sys.stdout.flush()
+	sys.stdout.write("   Download progress: %s %d%% of %d MB \r" % (cstr,percent, totalSize/1000/1000) )
+	sys.stdout.flush()
+		
 
 def select_captions(caption_map):
 	logr = logging.getLogger(vid) 
@@ -532,7 +538,7 @@ def download_streams(page, select_map,folder):
 	
 	if(separated == 1):
 		outfile = folder.rstrip('/')+"/"+str(title)+"_-_"+str(uid)+"."+out_fmt 
-		combine_streams(temp_files,outfile,0)
+		combine_streams(temp_files,outfile,1)
 
 	logr.debug("Streams [%s] Downloaded: '%s' @ %s ----------------",vid,outfile,str(datetime.datetime.now()))
 
