@@ -58,6 +58,8 @@ import certifi
 from xml.dom import minidom
 from HTMLParser import HTMLParser
 
+from ytutils import clean_up_title 
+
 ### User Config Variable ----------------------------
 
 quite = False 
@@ -105,23 +107,6 @@ def setup_item_logger(vid):
 
 
 #### ------------------------------------------------
-
-def removeNonAscii(s): return "".join(filter(lambda x: ord(x)<128, s))
-
-def pathsafe(s): 
-	keepcharacters = (' ','.','_')
-    	return "".join(c for c in s if c.isalnum() or c in keepcharacters).rstrip()
-
-def clean_up_title(title):
-	title = title.replace('\n','').rsplit('-',1)[0].strip() 
-	title = removeNonAscii(title) 
-
-	printable = set(string.printable)
-	title = filter(lambda x: x in printable, title)
-
-	title = pathsafe(title) 
-
-	return title 
 
 def get_vid_from_url(string):
 	special_chars = { '#', '@', '?' }  # Chars used as: '#' as comment, '@' as DONE, '?' as ERROR 
@@ -613,7 +598,7 @@ def download_list(url_list,folder) :
 			download_item(url['id'],folder) 
 			i += 1
 		elif ((url['status'] == "SKIP") or (url['status'] == "ERROR")) : 
-			logm.info("Download item %d [%s] : vid = %s : %s",i,url['status'],url['id'],url['attr'].join('\t') ) 
+			logm.info("Download item %d [%s] : vid = %s : %s",i,url['status'],url['id'],"\t".join(url['attrs']) ) 
 			i += 1
 		else :
 			logm.info("#%s",url['comment'])
@@ -631,7 +616,7 @@ def read_list(listfile):
 			id_str = attrs[0] if(len(attrs) > 0) else "" 
 			item["comment"] = l[1].strip() if(len(l) > 1) else "" 
 			item["status"], item["id"] = get_vid_from_url(id_str) 
-			item["attrs"] = attrs[1:]
+			item["attrs"] = attrs[1:] if (len(attrs)>0) else "" 
 			url_list.append(item) 
 		i += 1 
 

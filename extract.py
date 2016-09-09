@@ -29,6 +29,8 @@ import certifi
 from xml.dom import minidom
 from HTMLParser import HTMLParser
 
+from ytutils import clean_up_title 
+
 ### User Config Variable ----------------------------
 
 quite = False 
@@ -63,25 +65,6 @@ def setup_main_logger():
 	return logm
 	
 #### ------------------------------------------------
-
-def removeNonAscii(s): return "".join(filter(lambda x: ord(x)<128, s))
-
-# Not allowed characters 
-#	filesystem  \ / : * ? " < > | 	other #	 and nonprintable 
-def pathsafe(s): 
-	keepcharacters = (' ','\'','.','_','-','!','%','(',')','+',',',';','=','@','[',']','{','}','~')
-    	return "".join(c for c in s if c.isalnum() or c in keepcharacters).rstrip()
-
-def clean_up_title(title):
-	title = title.replace('\n','').strip() 
-	title = removeNonAscii(title) 
-
-	printable = set(string.printable)
-	title = filter(lambda x: x in printable, title)
-
-	title = pathsafe(title) 
-
-	return title 
 
 def get_list_page(plid):
 	logr = logging.getLogger() 
@@ -183,7 +166,8 @@ def print_playlist(playlist):
 	print "# Title: "+playlist['title']
 	print "# Owner: "+playlist['owner']
 	del_items = playlist['total']-len(plist)
-	print "# Item count: Total="+str(playlist['total'])+" Available ="+str(len(plist))+" Deleted="+str(del_items)
+	print "# Item count: Total="+str(playlist['total'])+" Available ="+str(len(plist))+" Unavailable="+str(del_items)
+
 	print "#--------------------------------------------------------"
 	for l in plist: 
 		print l['vid']+"\t"+l['title'] 
@@ -236,10 +220,11 @@ def extract_playlist(pl_page):
 
 def prune_playlist(playlist): 
 	plist = playlist['list'] 
+	unavail_list = { "[Deleted Video]", "[Private Video]" } 
 	plist2 = list() 
 
 	for p in plist : 
-		if(p['title'] != "[Deleted Video]"): 
+		if(p['title'] not in unavail_list): 
 			plist2.append(p) 
 			
 	playlist['list'] = plist2 
