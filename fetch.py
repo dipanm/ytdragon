@@ -30,6 +30,7 @@
 #	- prefer p60 over p30 videos
 #	- network reconnect should re-establish things
 #	- move to python3
+#	- mkdir if folder for -f doesn't exist. 
 #--------------------------------------------------------------------------------------------
 
 from lxml import html 
@@ -122,6 +123,27 @@ def clean_up_title(title):
 
 	return title 
 
+def get_vid_from_url(string):
+	special_chars = { '#', '@', '?' }  # Chars used as: '#' as comment, '@' as DONE, '?' as ERROR 
+	vid = "INVALID" 
+	
+	if(string == ""): 
+		return "NONE", "" 
+
+	if(string[0] in special_chars ):
+		return "SKIP", string[1:] 
+
+	if re.match('^(http|https)://', string):
+		para = string.split('?')[1].split(",")
+		for p in para:
+			key, value = p.split("=")
+			vid = value if (key == 'v') else vid 
+	else:
+		vid = string
+
+	status = "ERROR" if vid == "INVALID" else "OK" 
+	return status, vid 
+
 def get_watch_page(vid):
 	logr = logging.getLogger(vid) 
 
@@ -155,7 +177,7 @@ def get_watch_page(vid):
 
 def get_stream_map_serial(tree):
 	logr = logging.getLogger(vid) 
-
+	player_script = ""
 	scripts = tree.xpath('//script/text()') 
 	for s in scripts:
 		if s.find("ytplayer") != -1 :
@@ -200,13 +222,17 @@ def print_pretty(d,indent=0):
 def parse_stream_map(argstr):
 	logr = logging.getLogger(vid) 
 
+	if (argstr == ""):
+		logr.critical("The watch page has no player") 
+		return { 'error': -1 } 
+		
 	arg_list = json.loads(argstr)
 
 	if(deep_debug): 
 		print_pretty(arg_list) 
 	if not (arg_list.has_key('args')): 
 		logr.critical("The watch page is not a standard youtube page") 
-		return { 'error': -1 } 
+		return { 'error': -2 } 
 	else:
 		args = arg_list['args'] 	
 
@@ -220,7 +246,7 @@ def parse_stream_map(argstr):
 	
 	if( (len(encoded_map) ==0) and (len(encoded_map_adp) == 0)):
 		logr.critical("Unable to find stream_map") 
-		return { 'error': -2 } 
+		return { 'error': -3 } 
 
 	res_index = {'small':'240','medium':'360','high':'480','large':'480','hd720':'720','1440p':'1440','1080p':'1080'} 
 
@@ -548,8 +574,6 @@ def download_streams(page, select_map,folder):
 def download_item(vid,folder):
 	logr = setup_item_logger(vid) 
 
-	logr.debug("Begining to fetch item %s : %s",vid,str(datetime.datetime.now()))
-
 	watch_page = get_watch_page(vid) 
 	if(watch_page['error'] != 0):
 		return
@@ -577,28 +601,38 @@ def download_item(vid,folder):
 
 	return
 
-def get_vid_from_url(string):
-	if(string[0] == '?'):
-		return '?' 
-	if re.match('^(http|https)://', string):
-		url = string
-		para = url.split('?')[1].split(",")
-		for p in para:
-			key, value = p.split("=")
-			if(key == 'v'):
-				vid = value 
-	else:
-		vid = string 
 
-	return vid 
- 
+def download_list(url_list,folder) :
+	logm = logging.getLogger() 
+	
+	i = 0
+	for url in url_list:
+		if( url['status'] == "OK"): 
+			vid = url['id']
+			logm.info("Downloading item %d %s : %s",i,url['id'],str(datetime.datetime.now()))
+			download_item(url['id'],folder) 
+			i += 1
+		elif ((url['status'] == "SKIP") or (url['status'] == "ERROR")) : 
+			logm.info("Download item %d [%s] : vid = %s : %s",i,url['status'],url['id'],url['attr'].join('\t') ) 
+			i += 1
+		else :
+			logm.info("#%s",url['comment'])
+	return
+
 def read_list(listfile):
 	i=0
 	url_list = list() 
 	lf  = open(listfile, "r")
 	for line in lf:
 		if line.strip():
-			url_list.append(line.rstrip()) 
+			item = dict() 
+			l = line.rstrip().split("#",1) 
+			attrs = l[0].split('\t') 
+			id_str = attrs[0] if(len(attrs) > 0) else "" 
+			item["comment"] = l[1].strip() if(len(l) > 1) else "" 
+			item["status"], item["id"] = get_vid_from_url(id_str) 
+			item["attrs"] = attrs[1:]
+			url_list.append(item) 
 		i += 1 
 
 	return  url_list  
@@ -655,21 +689,14 @@ def parse_arguments(argv):
 logm = setup_main_logger() 
 
 (folder, item, ulist, list_mode) = parse_arguments(sys.argv[1:]) 
+vid = '-'
 
 if(list_mode == 1): 
 	url_list = read_list(ulist) 
 	logm.info("Downloading %d items from list %s",len(url_list),ulist) 
-	i = 0
-	for url in url_list:
-		i = i+1
-		vid = get_vid_from_url(url)
-		if(vid == '?'): 
-			logm.warning("Skipping item\t[%d] %s",i,url) 
-			continue
-		else: 
-			download_item(vid,folder)
+	download_list(url_list,folder) 
 else:
-	vid = get_vid_from_url(item)
+	status, vid = get_vid_from_url(item)
 	download_item(vid,folder)
 
 logm.info("Good bye... Enjoy the video!") 
