@@ -1,48 +1,5 @@
 #!/usr/bin/python -u 
 
-#--------------------------------------------------------------------------------------------
-# Wish list 
-# 	- get rid of ssl error 
-#	- skip webm - pirorities mp4 (at least not under ADP) 
-#	- deal with network failures. 
-#	- deal with resume on socket. (resume partial downloads) 
-#	- deal with youtube 404
-#	- don't say 'Enjoy the video' when there is no download.
-#	- maintain a trace and don't redownload what you have already got. 
-# 	- skip what is already downloaded 
-#	- where and how to keep the trace? what is the file format? 
-#	- capture critical stuff and do clean exit when user presses Ctr+C 
-#	- you can also check if the file is physically present. 
-#	- needs to see that duration available locally matches with what is claimed by YT
-#	- list control - follow list, pause, stop and resume post what is finished. 
-#	- if somethings fail / skip that download item, and go on to next. 
-#	- maintain csv generator that can keep the trace. 
-#	- read list file which can be a CSV - as extracted by channel decoders / playlist decoders etc. 
-#	- mark column that will allow users to select/deselect files required to download (?) 
-#	- parallel thread downloading 
-#	- proper logging on per download basis. (vid.log) independent of stdout for basic purpose. 
-#	- bring ffmpeg output to perstream log 
-#	- ffmpeg -vcoded copy doesn't work! 
-#	- generalize the output file format 
-#	- downalod_stream function should provide data of actual status and details of download (put it to trace)
-#	- get watch page to retrive the play duration - dont' need to downloard the full thing for it. 
-#	- download captions and convert it to srt that VLC can play 
-#	- prefer p60 over p30 videos
-#	- network reconnect should re-establish things
-#	- move to python3
-#	- mkdir if folder for -f doesn't exist. 
-#	- ask if the file to be downloaded already exists
-#----------------------------------------------------------------------------------------------------
-# Code TODO 
-#	- clean up overall flow of messages on console and in logs 
-#	- use exceptions instead of status codes/errors in most return calls
-# 	- generalized function for page download 
-#	- generlize id from url for watch, playlist, channel 
-#	- get rid of print_stream_map functions. Simplify with pretty_print 
-#	- make item logger global (how will you handle in multithread situation?) 
-#	- centrlized all standard strings (including youtube.com/xxx where we are assuming known url 
-#-----------------------------------------------------------------------------------------------------
-
 from lxml import html 
 import requests 
 
@@ -63,7 +20,6 @@ import ssl
 import urllib
 import urllib3
 import certifi
-
 
 from xml.dom import minidom
 from HTMLParser import HTMLParser
