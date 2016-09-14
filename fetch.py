@@ -31,6 +31,7 @@
 #	- network reconnect should re-establish things
 #	- move to python3
 #	- mkdir if folder for -f doesn't exist. 
+#	- ask if the file to be downloaded already exists
 #--------------------------------------------------------------------------------------------
 
 from lxml import html 
@@ -67,7 +68,7 @@ enable_line_log = True
 line_log_path  = "./ytdragon.log" 
 enable_item_log  = True 
 itemlog_path = "./logs"
-deep_debug = False 
+deep_debug = True 
 
 #### -- Logging Related Functions -------------------
 
@@ -118,6 +119,9 @@ def get_vid_from_url(string):
 	if(string[0] in special_chars ):
 		return "SKIP", string[1:] 
 
+	# Replace this by parseurl  as below: (currently unable to take muliple args.
+	#parsed_url = urlparse.urlparse(url)
+	#vid = urlparse.parse_qs(parsed_url.query)['v'][0]
 	if re.match('^(http|https)://', string):
 		para = string.split('?')[1].split(",")
 		for p in para:
@@ -132,39 +136,25 @@ def get_vid_from_url(string):
 def get_watch_page(vid):
 	logr = logging.getLogger(vid) 
 
+	page = { 'code' : -1, 'contents' : ""} 
 	url = "https://www.youtube.com/watch?v="+vid
 	logr.debug("Getting the page: %s",url) 
 
 	response = urllib.urlopen(url)
-	code = response.getcode() 
-	if(code != 200):
-		logr.error("wrong vid %s\n",vid) 
-		return { 'error' : -1, 'vid' : vid } 
-	page = response.read()
+	page['code'] = response.getcode() 
+	page['contents'] = response.read()
 
 	if(deep_debug): 
 		fp = open(vid+".html","w") 
 		if(fp): 
-			fp.write(page) 
+			fp.write(page['contents']) 
 			fp.close() 
 
-	tree = html.fromstring(page) 
-	t = tree.xpath('//title/text()')
-	
-	title = clean_up_title(t[0]) 
+	return page 
 
-	parsed_url = urlparse.urlparse(url)
-	vid = urlparse.parse_qs(parsed_url.query)['v'][0]
-
-	logr.debug("VID:[%s] Title:'%s' %d bytes",vid,title,len(page))
-
-	return { 'title': title, 'vid': vid, 'tree': tree, 'error': 0 }  
-
-def get_stream_map_serial(tree):
+def extract_player_args(script): 
 	logr = logging.getLogger(vid) 
-	player_script = ""
-	scripts = tree.xpath('//script/text()') 
-	for s in scripts:
+	for s in script:
 		if s.find("ytplayer") != -1 :
 			player_script = s
 			break; 
@@ -181,12 +171,51 @@ def get_stream_map_serial(tree):
 		p2 += 1
 		if nesting == 0:
 			break;
-	if(deep_debug): 
-		logr.debug("player_script ---------------------------------") 
-		logr.debug(player_script[p1:p2]) 
-		logr.debug("-----------------------------------------------") 
 
-	return player_script[p1:p2]
+	#if(deep_debug): 
+	#	logr.debug("player_script ---------------------------------") 
+	#	logr.debug(player_script[p1:p2]) 
+	#	logr.debug("-----------------------------------------------") 
+
+	return player_script[p1:p2] 
+	
+
+def parse_vid_page(page):
+	logr = logging.getLogger(vid) 
+	player_script = ""
+	vidinfo = dict() 
+
+	tree = html.fromstring(page) 
+
+	#t = tree.xpath('//title/text()')
+	#title = clean_up_title(t[0]) 
+
+	#parsed_url = urlparse.urlparse(url)
+	#vid = urlparse.parse_qs(parsed_url.query)['v'][0]
+
+	#scripts = tree.xpath('//script/text()') 
+	script = tree.xpath('//script[contains(.,"ytplayer")]/text()') 
+	player_script = extract_player_args(script) 
+
+	if (player_script == ""):
+		logr.critical("The watch page has no player") 
+		return None
+		
+	arg_list = json.loads(player_script)
+
+	if not (arg_list.has_key('args')): 
+		logr.critical("The watch page is not a standard youtube page") 
+		return None
+	else:
+		args = arg_list['args'] 	
+
+	args['title'] = clean_up_title(args['title']) 
+	if(deep_debug): 
+		logr.debug("Player args -----------------------------------------") 
+		print_pretty(args) 
+
+	logr.debug("VID:[%s] Title:'%s' %d bytes",args['vid'],args['title'],len(page))
+	return args 
 
 def print_arg_list(arg_list): 
 	logr = logging.getLogger(vid) 
@@ -202,36 +231,17 @@ def print_pretty(d,indent=0):
          logr.debug('\t' * indent + "[" + str(key) +"]")
          print_pretty(value, indent+1)
       else:
-         logr.debug('\t' * (indent) + str(key) + " : " + str(value))
+         logr.debug('\t' * (indent) + "[" + str(key) + "] : " + str(value))
 
-def parse_stream_map(argstr):
+def parse_stream_map(args):
 	logr = logging.getLogger(vid) 
 
-	if (argstr == ""):
-		logr.critical("The watch page has no player") 
-		return { 'error': -1 } 
-		
-	arg_list = json.loads(argstr)
-
-	if(deep_debug): 
-		print_pretty(arg_list) 
-	if not (arg_list.has_key('args')): 
-		logr.critical("The watch page is not a standard youtube page") 
-		return { 'error': -2 } 
-	else:
-		args = arg_list['args'] 	
-
-	encoded_map = list()
-	if( args.has_key('url_encoded_fmt_stream_map') ): 
-		encoded_map = args['url_encoded_fmt_stream_map'].split(",") 
-
-	encoded_map_adp = list() 
-	if( args.has_key('adaptive_fmts') ): 
-		encoded_map_adp = arg_list['args']['adaptive_fmts'].split(",")
+	encoded_map = args['url_encoded_fmt_stream_map'].split(",") if(args.has_key('url_encoded_fmt_stream_map')) else list() 
+	encoded_map_adp = args['adaptive_fmts'].split(",") if(args.has_key('adaptive_fmts')) else list() 
 	
 	if( (len(encoded_map) ==0) and (len(encoded_map_adp) == 0)):
 		logr.critical("Unable to find stream_map") 
-		return { 'error': -3 } 
+		return { 'error': -1 } 
 
 	res_index = {'small':'240','medium':'360','high':'480','large':'480','hd720':'720','1440p':'1440','1080p':'1080'} 
 
@@ -298,8 +308,8 @@ def parse_stream_map(argstr):
 	adp_stream_map_a = sorted(adp_stream_map_a, key= lambda k: int(k['bitrate']), reverse=True) 
 
 	caption_map = list() 
-	if(arg_list['args'].has_key('caption_tracks')): 
-		caption_str = arg_list['args']['caption_tracks'].split(",") 
+	if(args.has_key('caption_tracks')): 
+		caption_str = args['caption_tracks'].split(",") 
 		for cmap in caption_str:
 			cap_map = dict() 
 			cap = cmap.split("&")
@@ -319,9 +329,12 @@ def parse_stream_map(argstr):
 				cap_map.update({'media':'caption','fmt':'srt'}) 
 			caption_map.append(cap_map)
 
+	# This copying stuff should be get ridden off! 
+	#The current function should only attach stream_maps to original work 
 	## ==== All variables ==============
 	page_map = args_para = dict() 
 	page_map['video_id']    = args['video_id']	if(args.has_key('video_id')) else ''
+	page_map['vid']    	= args['vid']		if(args.has_key('video_id')) else ''
 	page_map['loudness']    = args['loudness']	if(args.has_key('loudness')) else ''
 	page_map['title']       = args['title']		if(args.has_key('title')) else ''
 	page_map['timestamp']   = args['timestamp']	if(args.has_key('timestamp')) else ''
@@ -560,15 +573,19 @@ def download_item(vid,folder):
 	logr = setup_item_logger(vid) 
 
 	watch_page = get_watch_page(vid) 
-	if(watch_page['error'] != 0):
+	if(watch_page['code'] != 200):	#only HTML code for success is 200 OK
+		log.error("Can't Download item %s:Unable to fetch page",vid) 
 		return
 
-	argstr =  get_stream_map_serial(watch_page['tree'])
-	stream_map = parse_stream_map(argstr)
+	player_args =  parse_vid_page (watch_page['contents'])
+	if(player_args == None):
+		logr.error("Can't Download item %s:Unable to parse page or bad page",vid) 
+		return -1
+	stream_map = parse_stream_map(player_args)
 
 	if(stream_map['error'] != 0):
-		logr.debug("Error parsing of the page ------------") 
-		return -1
+		logr.error("Can't Download item %s:Error parsing of the page",vid) 
+		return -2
 	else: 
 		logr.debug("Parsing of the page successful ------------") 
 
@@ -579,13 +596,12 @@ def download_item(vid,folder):
 	print_smap_abridged("\nSelected",select_map)
 	logr.debug("\n")
 
-	logr.info("Downloading Item:[%s] '%s'",watch_page['vid'],watch_page['title']) 
-	download_streams(watch_page,select_map,folder)
-	download_caption(watch_page,select_map,folder)
+	logr.info("Downloading Item:[%s] '%s'",player_args['vid'],player_args['title']) 
+	download_streams(player_args,select_map,folder)
+	download_caption(player_args,select_map,folder)
 	logr.info("Fetch Complete @ %s ----------------",str(datetime.datetime.now()))
 
 	return
-
 
 def download_list(url_list,folder) :
 	logm = logging.getLogger() 
@@ -634,6 +650,8 @@ def parse_arguments(argv):
 	folder = ''
 	list_mode = 0 
 
+	if(deep_debug): 
+		pprint.pprint(argv) 
 	try:
 		opts, args = getopt.getopt(argv,"f:i:l:",["item=","list="])
 	except getopt.GetoptError as err:
