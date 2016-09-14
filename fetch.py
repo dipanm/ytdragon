@@ -32,7 +32,16 @@
 #	- move to python3
 #	- mkdir if folder for -f doesn't exist. 
 #	- ask if the file to be downloaded already exists
-#--------------------------------------------------------------------------------------------
+#----------------------------------------------------------------------------------------------------
+# Code TODO 
+#	- clean up overall flow of messages on console and in logs 
+#	- use exceptions instead of status codes/errors in most return calls
+# 	- generalized function for page download 
+#	- generlize id from url for watch, playlist, channel 
+#	- get rid of print_stream_map functions. Simplify with pretty_print 
+#	- make item logger global (how will you handle in multithread situation?) 
+#	- centrlized all standard strings (including youtube.com/xxx where we are assuming known url 
+#-----------------------------------------------------------------------------------------------------
 
 from lxml import html 
 import requests 
@@ -60,6 +69,7 @@ from xml.dom import minidom
 from HTMLParser import HTMLParser
 
 from ytutils import clean_up_title 
+from ytutils import write_to_file
 
 ### User Config Variable ----------------------------
 
@@ -109,28 +119,42 @@ def setup_item_logger(vid):
 
 #### ------------------------------------------------
 
+# following errors to check 
+#  - if the first char belongs to special chars 
+#  - if not a "youtube.com" page
+#  - if host is youtube page but not a watch page 
+#  - if id not alphanumeric both direct or url format 
 def get_vid_from_url(string):
-	special_chars = { '#', '@', '?' }  # Chars used as: '#' as comment, '@' as DONE, '?' as ERROR 
+	# should this business be kept in the list parsing function? 
+	none_chars = { '#', '=' }  # Chars used as: '#' as comment, '=' as command
+	skip_chars = { '@', '?' }  # Chars used as: '@' as DONE, '?' as ERROR 
+	default_host = "youtube.com" 
 	vid = "INVALID" 
+	status = "INVALID"
 	
-	if(string == ""): 
+	if( (string == "") or (string[0] in none_chars) ) : 
 		return "NONE", "" 
 
-	if(string[0] in special_chars ):
+	if(string[0] in skip_chars ):
 		return "SKIP", string[1:] 
 
-	# Replace this by parseurl  as below: (currently unable to take muliple args.
-	#parsed_url = urlparse.urlparse(url)
-	#vid = urlparse.parse_qs(parsed_url.query)['v'][0]
 	if re.match('^(http|https)://', string):
-		para = string.split('?')[1].split(",")
-		for p in para:
-			key, value = p.split("=")
-			vid = value if (key == 'v') else vid 
+		parsed_url = urlparse.urlparse(string)
+		h = parsed_url.netloc
+		path = parsed_url.path 
+		vid = urlparse.parse_qs(parsed_url.query)['v'][0]
+
+		if default_host not in h: 
+			status = "BAD_HOST" 
+		if not (path == "/watch"):
+			status = "INCORRECT_PAGE" 
+
+		if (status == "INVALID") and (vid != "") and (vid != "INVALID") : 
+			status = "OK" 
 	else:
 		vid = string
+		status = "OK" if vid.isalnum() else "BAD_VID" 
 
-	status = "ERROR" if vid == "INVALID" else "OK" 
 	return status, vid 
 
 def get_watch_page(vid):
@@ -143,17 +167,17 @@ def get_watch_page(vid):
 	response = urllib.urlopen(url)
 	page['code'] = response.getcode() 
 	page['contents'] = response.read()
+	page['len']  = len(page['contents']) 
 
 	if(deep_debug): 
-		fp = open(vid+".html","w") 
-		if(fp): 
-			fp.write(page['contents']) 
-			fp.close() 
+		write_to_file(vid+".html",page['contents']) 
 
 	return page 
 
 def extract_player_args(script): 
 	logr = logging.getLogger(vid) 
+	player_script = ""
+
 	for s in script:
 		if s.find("ytplayer") != -1 :
 			player_script = s
@@ -172,37 +196,21 @@ def extract_player_args(script):
 		if nesting == 0:
 			break;
 
-	#if(deep_debug): 
-	#	logr.debug("player_script ---------------------------------") 
-	#	logr.debug(player_script[p1:p2]) 
-	#	logr.debug("-----------------------------------------------") 
-
 	return player_script[p1:p2] 
 	
-
-def parse_vid_page(page):
+def parse_watch_page(page):
 	logr = logging.getLogger(vid) 
-	player_script = ""
-	vidinfo = dict() 
 
 	tree = html.fromstring(page) 
-
-	#t = tree.xpath('//title/text()')
-	#title = clean_up_title(t[0]) 
-
-	#parsed_url = urlparse.urlparse(url)
-	#vid = urlparse.parse_qs(parsed_url.query)['v'][0]
-
-	#scripts = tree.xpath('//script/text()') 
 	script = tree.xpath('//script[contains(.,"ytplayer")]/text()') 
 	player_script = extract_player_args(script) 
 
 	if (player_script == ""):
-		logr.critical("The watch page has no player") 
+		error = " ".join(map(str.strip, tree.xpath('//div[@id="player-unavailable"]//text()'))) 
+		logr.critical("Video Unavailable: %s",error) 
 		return None
 		
 	arg_list = json.loads(player_script)
-
 	if not (arg_list.has_key('args')): 
 		logr.critical("The watch page is not a standard youtube page") 
 		return None
@@ -574,10 +582,10 @@ def download_item(vid,folder):
 
 	watch_page = get_watch_page(vid) 
 	if(watch_page['code'] != 200):	#only HTML code for success is 200 OK
-		log.error("Can't Download item %s:Unable to fetch page",vid) 
+		log.error("Can't Download item %s:Unable to fetch page. Response %d",vid,watch_page['code']) 
 		return
 
-	player_args =  parse_vid_page (watch_page['contents'])
+	player_args =  parse_watch_page (watch_page['contents'])
 	if(player_args == None):
 		logr.error("Can't Download item %s:Unable to parse page or bad page",vid) 
 		return -1
@@ -700,7 +708,10 @@ if(list_mode == 1):
 	download_list(url_list,folder) 
 else:
 	status, vid = get_vid_from_url(item)
-	download_item(vid,folder)
+	if(status == "OK") : 
+		download_item(vid,folder) 
+	else : 
+		logm.info("Unable to download vid %s: %s",vid,status) 
 
 logm.info("Good bye... Enjoy the video!") 
 
