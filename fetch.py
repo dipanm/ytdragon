@@ -36,6 +36,9 @@ enable_item_log  = True
 itemlog_path = "./logs"
 deep_debug = True 
 
+default_host = "youtube.com" 
+default_hurl = "https://"+default_host 
+
 #### -- Logging Related Functions -------------------
 
 def setup_main_logger():
@@ -84,7 +87,6 @@ def get_vid_from_url(string):
 	# should this business be kept in the list parsing function? 
 	none_chars = { '#', '=' }  # Chars used as: '#' as comment, '=' as command
 	skip_chars = { '@', '?' }  # Chars used as: '@' as DONE, '?' as ERROR 
-	default_host = "youtube.com" 
 	vid = "INVALID" 
 	status = "INVALID"
 	
@@ -155,39 +157,67 @@ def extract_player_args(script):
 	return player_script[p1:p2] 
 	
 def parse_watch_page(page):
-	logr = logging.getLogger(vid) 
+	logr = logging.getLogger(vid)
 
+	arg_keys = { 'length_seconds', 'loudness', 'timestamp', 'host_language', 'avg_rating', 'view_count', 'thumbnail_url', 
+	   'fmt_list', 'adaptive_fmts', 'url_encoded_fmt_stream_map', 'caption_tracks', 'caption_translation_languages' } 
+
+	prop_keys = { 'og:title' : 'title' , 'og:description' : 'description', 'og:type' : 'type',
+			'og:url': 'url', 'og:image': 'fullimage_url', 'og:video:url' : 'embed_url' } 
+	iprop_keys = { 'videoId' : 'vid' , 'channelId' : 'chid','datePublished': 'datePublished','genre': 'genre',
+			'regionsAllowed': 'regionsAllowed' ,'isFamilyFriendly': 'isFamilyFriendly','paid': 'paid' }
+
+	dlItem = dict() 
+	# extract dom tree of HTML Page
 	tree = html.fromstring(page) 
+
+	# extract player script 
 	script = tree.xpath('//script[contains(.,"ytplayer")]/text()') 
 	player_script = extract_player_args(script) 
-
 	if (player_script == ""):
 		error = " ".join(map(str.strip, tree.xpath('//div[@id="player-unavailable"]//text()'))) 
 		logr.critical("Video Unavailable: %s",error) 
 		return None
-		
+
+	# extract player args from the player script 	
 	arg_list = json.loads(player_script)
 	if not (arg_list.has_key('args')): 
 		logr.critical("The watch page is not a standard youtube page") 
-		return None
+		args = None 
 	else:
 		args = arg_list['args'] 	
 
-	args['title'] = clean_up_title(args['title']) 
-	if(deep_debug): 
-		logr.debug("Player args -----------------------------------------") 
-		print_pretty(args) 
+	# populate the attributes
+	dlItem['author'] 		= " ".join(map(str.strip, tree.xpath("//div[@class='yt-user-info']//text()"))) 
+	dlItem['author_url'] 		= default_hurl+tree.xpath("//div[@class='yt-user-info']/a/@href")[0]
+	dlItem['keywords'] 		= tree.xpath("//meta[@name='keywords']/@content")[0].split(',') 
+	
+	for k in prop_keys: 
+		v = tree.xpath("//meta[@property='"+k+"']/@content") 
+		dlItem[prop_keys[k]] = v[0] if (len(v)> 0) else '' 
 
-	logr.debug("VID:[%s] Title:'%s' %d bytes",args['vid'],args['title'],len(page))
-	return args 
+	for k in iprop_keys: 
+		v = tree.xpath("//meta[@itemprop='"+k+"']/@content")
+		dlItem[iprop_keys[k]] = v[0] if (len(v)> 0) else '' 
 
-def print_arg_list(arg_list): 
-	logr = logging.getLogger(vid) 
+	if (args != None):
+		dlItem['player_args'] 		= True 		# we don't quite need this but still! 
+		for k in arg_keys: 
+			dlItem[k] = args[k] if (args.has_key(k)) else '' 
 
-	args = arg_list['args'] 
-	for key in args:
-		logr.debug("[%s]: %s",key,args[key]) 
+		dlItem['country'] 		= args['cr'] 	if(args.has_key('cr')) else ''
+		dlItem['has_caption'] 		= True if dlItem['caption_tracks'] != "" else False 
+		f = args['fmt_list'].split(',')
+		dlItem['max_res'] = f[0].split('/')[1] if (f != None)  else 0 
+		dlItem['filesize'] 		= 0 	# right now we don't know 
+	else :
+		dlItem['player_args'] 	= False 
+		dlItem['max_res'] 	= 0
+		dlItem['has_caption']   = False 
+	
+	return dlItem 
 
+# Take a wrappe that will print extra message and lines if you like and move both to the utils 
 def print_pretty(d,indent=0):
    logr = logging.getLogger(vid) 
    for key, value in d.iteritems():
@@ -205,7 +235,7 @@ def parse_stream_map(args):
 	
 	if( (len(encoded_map) ==0) and (len(encoded_map_adp) == 0)):
 		logr.critical("Unable to find stream_map") 
-		return { 'error': -1 } 
+		return None 
 
 	res_index = {'small':'240','medium':'360','high':'480','large':'480','hd720':'720','1440p':'1440','1080p':'1080'} 
 
@@ -293,38 +323,14 @@ def parse_stream_map(args):
 				cap_map.update({'media':'caption','fmt':'srt'}) 
 			caption_map.append(cap_map)
 
-	# This copying stuff should be get ridden off! 
-	#The current function should only attach stream_maps to original work 
-	## ==== All variables ==============
-	page_map = args_para = dict() 
-	page_map['video_id']    = args['video_id']	if(args.has_key('video_id')) else ''
-	page_map['vid']    	= args['vid']		if(args.has_key('video_id')) else ''
-	page_map['loudness']    = args['loudness']	if(args.has_key('loudness')) else ''
-	page_map['title']       = args['title']		if(args.has_key('title')) else ''
-	page_map['timestamp']   = args['timestamp']	if(args.has_key('timestamp')) else ''
-	page_map['author']      = args['author']	if(args.has_key('author')) else ''
-	page_map['length_sec'] 	= args['length_seconds'] if(args.has_key('length_seconds')) else ''
-	page_map['std_count']   = len(fmt_stream_map) 
-	page_map['adp_v_count'] = len(adp_stream_map_v) 
-	page_map['adp_a_count'] = len(adp_stream_map_a) 
+	## ==== Attach all map variables ==============
+	page_map = dict() 
 	page_map['std']		= fmt_stream_map
 	page_map['adp_v']	= adp_stream_map_v
 	page_map['adp_a']	= adp_stream_map_a
 	page_map['caption'] 	= caption_map
-	page_map['error'] 	= 0
 
-	return page_map  
-
-def print_smap_detailed(map_name,smap):
-	logr = logging.getLogger(vid) 
-
-	logr.debug("%s : %d #############################################",map_name,len(smap)) 
-	i = 1; 
-	for s in smap:
-		logr.debug("%d -----------------------------------",i) 
-		for key in sorted(s):
-			logr.debug("%s:   %s",key,s[key]) 
-		i += 1
+	return page_map 
 
 def smap_to_str(s):
 	if s['media'] == "audio-video":
@@ -336,38 +342,6 @@ def smap_to_str(s):
 	if s['media'] == "caption":
 		return '[%s] %s, %s :%s'%(s['media'],s['lang'],s['fmt'],s['name']) 
 	
-def print_smap_abridged(map_name,smap):
-	logr = logging.getLogger(vid) 
-
-	logr.debug("%s Total: %d -----------------------------------------------------",map_name,len(smap))
-	for s in smap:
-		logr.debug(smap_to_str(s))
-
-def print_smap_attribs(stream_map):
-	logr = logging.getLogger(vid) 
-
-	logr.debug("['video_id']   : %s",stream_map['video_id']) 
-	logr.debug("['loudness']   : %s",stream_map['loudness'])
-	logr.debug("['title']      : %s",stream_map['title'])  
-	logr.debug("['timestamp']  : %s",stream_map['timestamp'])
-	logr.debug("['author']     : %s",stream_map['author'])  
-	logr.debug("['length_sec'] : %s",stream_map['length_sec'])
-
-def print_stream_map_detailed(stream_map):
-	print_smap_attribs(stream_map)
-	print_smap_detailed("Standard",stream_map['std'])
-	print_smap_detailed("ADP Video",stream_map['adp_v'])
-	print_smap_detailed("ADP Audio",stream_map['adp_a'])
-	print_smap_detailed("Captions",stream_map['caption'])
-	
-def print_stream_map_abridged(stream_map):
-	print_smap_attribs(stream_map)
-	print_smap_abridged("Standard",stream_map['std'])
-	print_smap_abridged("ADP Video",stream_map['adp_v'])
-	print_smap_abridged("ADP Audio",stream_map['adp_a'])
-	print_smap_abridged("Captions",stream_map['caption'])
-
-
 def dlProgress(count, blockSize, totalSize):
 	logm = logging.getLogger() 
 	logr = logging.getLogger(vid) 
@@ -416,8 +390,8 @@ def select_captions(caption_map):
 
 def select_best_stream(stream_map):
 	logr = logging.getLogger(vid)
-	max_res_std = int(stream_map['std'][0]['res'])	if stream_map['std_count'] > 0 else 0 
-	max_res_adp = int(stream_map['adp_v'][0]['res'])  if stream_map['adp_v_count'] > 0 else 0 
+	max_res_std = int(stream_map['std'][0]['res'])	if len(stream_map['std']) > 0 else 0 
+	max_res_adp = int(stream_map['adp_v'][0]['res'])  if len(stream_map['adp_v']) > 0 else 0 
 
 	select_map = list(); 
 	if(max_res_adp > max_res_std):
@@ -465,11 +439,12 @@ def convert_time_format(ftime):
         )
 
 
-def download_caption(page, select_map,folder):
+def download_caption(dlItem, folder):
 	logr = logging.getLogger(vid) 
 
-	title = page['title'] 
-	uid = page['vid'] 
+	title = clean_up_title(dlItem['title']) 
+	uid = dlItem['vid'] 
+	select_map = dlItem['select_map']
 	path = folder.rstrip('/')+"/"+str(title)+"_-_"+str(uid)+"."+"srt"
 
 	for smap in select_map:
@@ -495,11 +470,12 @@ def download_caption(page, select_map,folder):
 			break;
 
 
-def download_streams(page, select_map,folder):
+def download_streams(dlItem, folder):
 	logr = logging.getLogger(vid) 
 
-	title = page['title'] 
-	uid = page['vid'] 
+	title = dlItem['title'] 
+	uid = dlItem['vid'] 
+	select_map = dlItem['select_map']
 	out_fmt = "mp4"
  
 	separated = 1; 	# Assume sepeated content by default. If not, no need to merge 
@@ -533,36 +509,39 @@ def download_streams(page, select_map,folder):
 #---------------------------------------------------------------
 # Top level functions for Main 
 
+# dlItem should be a class! 
+# dlItem should also have a better name
 def download_item(vid,folder):
 	logr = setup_item_logger(vid) 
 
-	watch_page = get_watch_page(vid) 
-	if(watch_page['code'] != 200):	#only HTML code for success is 200 OK
+	watch_page = get_watch_page(vid) 	
+	if( (watch_page['code'] != 200) or (watch_page['len'] ==0) )  :	#only HTML code for success is 200 OK
 		log.error("Can't Download item %s:Unable to fetch page. Response %d",vid,watch_page['code']) 
-		return
+		return -1 
 
-	player_args =  parse_watch_page (watch_page['contents'])
-	if(player_args == None):
+	dlItem =  parse_watch_page (watch_page['contents'])	
+	if(dlItem['player_args'] == None):
 		logr.error("Can't Download item %s:Unable to parse page or bad page",vid) 
-		return -1
-	stream_map = parse_stream_map(player_args)
-
-	if(stream_map['error'] != 0):
-		logr.error("Can't Download item %s:Error parsing of the page",vid) 
 		return -2
-	else: 
-		logr.debug("Parsing of the page successful ------------") 
+	dlItem['stream_map'] = parse_stream_map(dlItem)	
 
-	print_stream_map_detailed(stream_map)
-	print_stream_map_abridged(stream_map)
+	logr.debug("== Parsing of page succesful :========================================") 
+	print_pretty(dlItem) 
 
-	select_map = select_best_stream(stream_map) 
-	print_smap_abridged("\nSelected",select_map)
-	logr.debug("\n")
+	if not (dlItem['stream_map']):
+		logr.error("Can't Download item %s:Error parsing of the page",vid) 
+		return -3
 
-	logr.info("Downloading Item:[%s] '%s'",player_args['vid'],player_args['title']) 
-	download_streams(player_args,select_map,folder)
-	download_caption(player_args,select_map,folder)
+	logr.debug("Stream_list:\n"+"\n".join(map(smap_to_str,dlItem['stream_map']['std'] 
+		+ dlItem['stream_map']['adp_v'] + dlItem['stream_map']['adp_a'] + dlItem['stream_map']['caption'] )))
+	 
+	dlItem['select_map'] = select_best_stream(dlItem['stream_map']) 
+	logr.debug("Select_list:\n"+"\n".join(map(smap_to_str,dlItem['select_map'])))  
+
+	# stream_map, select_map can be public elements so that they can be logged and print outside. 
+	logr.info("Downloading Item:[%s] '%s'",dlItem['vid'],dlItem['title']) 
+	download_streams(dlItem,folder)	# TODO: this will only take dlItem in future 
+	download_caption(dlItem,folder)
 	logr.info("Fetch Complete @ %s ----------------",str(datetime.datetime.now()))
 
 	return
