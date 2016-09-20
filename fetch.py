@@ -117,13 +117,12 @@ def get_vid_from_url(string):
 	return status, vid 
 
 def get_watch_page(vid):
-	logr = logging.getLogger(vid) 
 
 	page = { 'code' : -1, 'contents' : ""} 
 	url = "https://www.youtube.com/watch?v="+vid
-	logr.debug("Getting the page: %s",url) 
 
 	response = urllib.urlopen(url)
+	page['url'] = url
 	page['code'] = response.getcode() 
 	page['contents'] = response.read()
 	page['len']  = len(page['contents']) 
@@ -354,7 +353,7 @@ def dlProgress(count, blockSize, totalSize):
 			tnow = datetime.datetime.now()
 			logr.debug("%s : %d%% - %d of %d MB",str(tnow),percent,(count*blockSize)/1000/1000,(totalSize/1000/1000))
 			#logm.info("%d",percent) 
-	sys.stdout.write("   Download progress: %s %d%% of %d MB \r" % (cstr,percent, totalSize/1000/1000) )
+	sys.stdout.write("\r\tDownload progress: %s %d%% of %d MB " % (cstr,percent, totalSize/1000/1000) )
 	sys.stdout.flush()
 		
 
@@ -409,9 +408,9 @@ def combine_streams(temp_files,outfile,remove_temp_files):
 	return_code = proc.wait()
 
 	if(return_code == 0):
-		logr.info("\nFFMPEG Muxing successful. Saved file: %s\n",outfile)
+		logr.debug("\n\tFFMPEG Muxing successful.")
 	else: 
-		logr.error("\nFFMPEG conversion completed with error code. Not deleting the downloaded files.\n")
+		logr.error("\n\tFFMPEG conversion completed with error code. Not deleting the downloaded files.")
 		remove_temp_files = 0
 		
 	if(remove_temp_files): 
@@ -457,7 +456,7 @@ def download_caption(dlItem, folder):
 				f.write('%s --> %s\n'%(start, dur))
 				f.write(hp.unescape(t).encode(sys.getfilesystemencoding()))
 				f.write('\n\n')
-			logr.info("Saved Caption %s \n\t=> %s\n",smap_to_str(smap),path) 
+			logr.info("\t%s\n\tSaved in: => %s",smap_to_str(smap),path) 
 			break;
 
 
@@ -483,19 +482,21 @@ def download_streams(dlItem, folder):
 			filename = folder.rstrip('/')+"/"+str(uid)+"."+str(smap['media'])+"."+str(smap['fmt'])
 			temp_files[media] = filename 
 
-		logr.info("%s \n\t=> %s",smap_to_str(smap),filename) 
-		logr.debug("URL: %s\n",smap['url']) 
+		logr.info("\t%s",smap_to_str(smap)) 
+		logr.debug("\tSaving URL: %s\n\tto %s",smap['url'],filename) 
 		t0 = datetime.datetime.now() 
 		socket.setdefaulttimeout(120)
 		fname, msg = urllib.urlretrieve(url,filename,reporthook=dlProgress) 
 		t1 = datetime.datetime.now() 
+		sys.stdout.write("\r")
+		sys.stdout.flush()
 		logr.debug("%sTime taken %s\n---------------------------------",msg,str(t1-t0)) 
 	
 	if(separated == 1):
 		outfile = folder.rstrip('/')+"/"+str(title)+"_-_"+str(uid)+"."+out_fmt 
 		combine_streams(temp_files,outfile,1)
 
-	logr.debug("Streams [%s] Downloaded: '%s' @ %s ----------------",vid,outfile,str(datetime.datetime.now()))
+	logr.info("\t[Outfile]: '%s'",outfile)
 
 #---------------------------------------------------------------
 # Top level functions for Main 
@@ -507,8 +508,10 @@ def download_item(vid,folder):
 
 	watch_page = get_watch_page(vid) 	
 	if( (watch_page['code'] != 200) or (watch_page['len'] ==0) )  :	#only HTML code for success is 200 OK
-		log.error("Can't Download item %s:Unable to fetch page. Response %d",vid,watch_page['code']) 
+		log.error("Can't Download item %s:Unable to fetch page. Response %d\nURL:%s",vid,watch_page['code'],watch_page['url']) 
 		return -1 
+	else: 
+		logr.debug("Got the watch page: %s [%d bytes]",watch_page['url'],watch_page['len']) 
 
 	dlItem =  parse_watch_page (watch_page['contents'])	
 	if(dlItem['player_args'] == None):
@@ -529,10 +532,10 @@ def download_item(vid,folder):
 	logr.debug("= Selected Streams: "+"="*25+"\n"+"\n".join(map(smap_to_str,sl))+"\n")  
 
 	# stream_map, select_map can be public elements so that they can be logged and print outside. 
-	logr.info("Downloading Item:[%s] '%s'",dlItem['vid'],dlItem['title']) 
+	logr.info("\tTitle:'%s'\n\tAuthor:'%s'",dlItem['title'],dlItem['author'])  
 	download_streams(dlItem,folder)	# TODO: this will only take dlItem in future 
 	download_caption(dlItem,folder)
-	logr.info("Fetch Complete @ %s ----------------",str(datetime.datetime.now()))
+	logr.info("\tFetch Complete @ %s ----------------",str(datetime.datetime.now()))
 
 	return
 
@@ -583,8 +586,6 @@ def parse_arguments(argv):
 	folder = ''
 	list_mode = 0 
 
-	if(deep_debug): 
-		pprint.pprint(argv) 
 	try:
 		opts, args = getopt.getopt(argv,"f:i:l:",["item=","list="])
 	except getopt.GetoptError as err:
@@ -634,6 +635,7 @@ if(list_mode == 1):
 else:
 	status, vid = get_vid_from_url(item)
 	if(status == "OK") : 
+		logm.info("Downloading item: [%s]",vid) 
 		download_item(vid,folder) 
 	else : 
 		logm.info("Unable to download vid %s: %s",vid,status) 
