@@ -30,6 +30,14 @@
 #	- move to python3
 #	- mkdir if folder for -f doesn't exist. 
 #	- ask if the file to be downloaded already exists
+#	- yl format to have critical info when created by extract e.g. resolution, author, timelength, cc/no-cc etc.
+#	- probe for file size in yl format? 
+#	- fetch can be directly given -p/-c/-u (for playlist,channel,user respectively) without calling extract.
+#	- instead of pretty print. Video meta can be explained in more human readable format. 
+#	- generic methods/ or customzable file titles. 
+#	- generic policies in what to fetch : AudioOnly/VideoOnly/AV, Max res, 
+#	- post processing of video. e.g. convert to mp3
+#	- in case of multiple parallel downloads, the current \r funda won't work. So need central reporting engine.
 #----------------------------------------------------------------------------------------------------
 # Code TODO 
 #	- clean up overall flow of messages on console and in logs 
@@ -39,6 +47,17 @@
 #	- get rid of print_stream_map functions. Simplify with pretty_print 
 #	- make item logger global (how will you handle in multithread situation?) 
 #	- centrlized all standard strings (including youtube.com/xxx where we are assuming known url 
+#	- get rid of print_smap_XXX functions and no extra return value from parse_stream_map 
+#	- move pretty_print to ytuitls 
+#	- reduce/remove dependency on logr from most possible lower level functions 
+#	- rename dlItem to something better. That is the base object for getting info!
+# 	- function that extract meta info will be out from fetch so extract can use it. 
+#	- generalize get_watch_page into different types of page e.g. playlist, channel/user etc. 
+#	- cleanup title is actually now part of download_streams. so should not be in utils 
+#	- keep all common strings in a central place 
+#	- it's time, the code must have classes for important stuff. 
+#	- pretty_print to take care of list specially?
+#	- id from url should also be generalized for video/playlist/channels/user 
 #-----------------------------------------------------------------------------------------------------
 
 
