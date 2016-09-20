@@ -77,7 +77,7 @@ def setup_item_logger(vid):
 	return logr 
 
 
-#### ------------------------------------------------
+#### ---All functions related loading meta ==========================================
 
 # following errors to check 
 #  - if the first char belongs to special chars 
@@ -133,7 +133,6 @@ def get_watch_page(vid):
 	return page 
 
 def extract_player_args(script): 
-	logr = logging.getLogger(vid) 
 	player_script = ""
 
 	for s in script:
@@ -167,7 +166,7 @@ def parse_watch_page(page):
 	iprop_keys = { 'videoId' : 'vid' , 'channelId' : 'chid','datePublished': 'datePublished','genre': 'genre',
 			'regionsAllowed': 'regionsAllowed' ,'isFamilyFriendly': 'isFamilyFriendly','paid': 'paid' }
 
-	dlItem = dict() 
+	vid_meta = dict() 
 	# extract dom tree of HTML Page
 	tree = html.fromstring(page) 
 
@@ -188,34 +187,34 @@ def parse_watch_page(page):
 		args = arg_list['args'] 	
 
 	# populate the attributes
-	dlItem['author'] 		= " ".join(map(str.strip, tree.xpath("//div[@class='yt-user-info']//text()"))) 
-	dlItem['author_url'] 		= default_hurl+tree.xpath("//div[@class='yt-user-info']/a/@href")[0]
-	dlItem['keywords'] 		= tree.xpath("//meta[@name='keywords']/@content")[0].split(',') 
+	vid_meta['author'] 		= " ".join(map(str.strip, tree.xpath("//div[@class='yt-user-info']//text()"))).strip()
+	vid_meta['author_url'] 		= default_hurl+tree.xpath("//div[@class='yt-user-info']/a/@href")[0]
+	vid_meta['keywords'] 		= tree.xpath("//meta[@name='keywords']/@content")[0].split(',') 
 	
 	for k in prop_keys: 
 		v = tree.xpath("//meta[@property='"+k+"']/@content") 
-		dlItem[prop_keys[k]] = v[0] if (len(v)> 0) else '' 
+		vid_meta[prop_keys[k]] = v[0] if (len(v)> 0) else '' 
 
 	for k in iprop_keys: 
 		v = tree.xpath("//meta[@itemprop='"+k+"']/@content")
-		dlItem[iprop_keys[k]] = v[0] if (len(v)> 0) else '' 
+		vid_meta[iprop_keys[k]] = v[0] if (len(v)> 0) else '' 
 
 	if (args != None):
-		dlItem['player_args'] 		= True 		# we don't quite need this but still! 
+		vid_meta['player_args'] 		= True 		# we don't quite need this but still! 
 		for k in arg_keys: 
-			dlItem[k] = args[k] if (args.has_key(k)) else '' 
+			vid_meta[k] = args[k] if (args.has_key(k)) else '' 
 
-		dlItem['country'] 		= args['cr'] 	if(args.has_key('cr')) else ''
-		dlItem['has_caption'] 		= True if dlItem['caption_tracks'] != "" else False 
+		vid_meta['country']	= args['cr'] 	if(args.has_key('cr')) else ''
+		vid_meta['has_caption']	= True if vid_meta['caption_tracks'] != "" else False 
 		f = args['fmt_list'].split(',')
-		dlItem['max_res'] = f[0].split('/')[1] if (f != None)  else 0 
-		dlItem['filesize'] 		= 0 	# right now we don't know 
+		vid_meta['max_res'] 	= f[0].split('/')[1] if (f != None)  else 0 
+		vid_meta['filesize'] 	= 0 	# right now we don't know 
 	else :
-		dlItem['player_args'] 	= False 
-		dlItem['max_res'] 	= 0
-		dlItem['has_caption']   = False 
+		vid_meta['player_args'] = False 
+		vid_meta['max_res'] 	= 0
+		vid_meta['has_caption'] = False 
 	
-	return dlItem 
+	return vid_meta 
 
 def parse_stream_map(args):
 	logr = logging.getLogger(vid) 
@@ -230,66 +229,73 @@ def parse_stream_map(args):
 	res_index = {'small':'240','medium':'360','high':'480','large':'480','hd720':'720','1440p':'1440','1080p':'1080'} 
 
 	fmt_stream_map = list()
-	for smap in encoded_map:
-		fmt_map_list = smap.split("&") 
-		fmt_map = dict({'stream':"std", 'fps':"30"}) #Keep 30 fps as default. If the key exist, will be overwritten
-		for sm in fmt_map_list:
-			pair = sm.split("=")
-			pair[1] = urllib.unquote(pair[1]).decode('utf8')
-			pair[1] = urllib.unquote(pair[1]).decode('utf8')
-			fmt_map.update({str(pair[0]):str(pair[1])}) 
-			if pair[0] == "quality":
-				fmt_map.update({'res':res_index[pair[1]]}) 
-			if pair[0] == "type":
-				mime = (pair[1].split(";"))[0]
-				#multiplexed standard formats have audio and video both
-				#even if their mime says only "video". Hence override 
-				#media = ((mime.split("/"))[0])
-				media = "audio-video"
-				fmt = ((mime.split("/"))[1])
-				c = pair[1].find("codec")
-				codec = ((pair[1].split("codecs="))[1]).strip("\"") if (c>0) else fmt 
-				fmt_map.update({'mime':mime,'media':media,'fmt':fmt,'codec':codec}) 
-		
-		fmt_stream_map.append(fmt_map)
-
-	fmt_stream_map = sorted(fmt_stream_map, key= lambda k: (int(k['res'])+int(k['fps'])), reverse=True) 
+	if (len(encoded_map) > 0) :
+		for smap in encoded_map:
+			if "&" not in smap:
+				continue
+			fmt_map_list = smap.split("&") 
+			fmt_map = dict({'stream':"std", 'fps':"30"}) #Keep 30 fps as default. If the key exist, will be overwritten
+			for sm in fmt_map_list:
+				pair = sm.split("=")
+				pair[1] = urllib.unquote(pair[1]).decode('utf8')
+				pair[1] = urllib.unquote(pair[1]).decode('utf8')
+				fmt_map.update({str(pair[0]):str(pair[1])}) 
+				if pair[0] == "quality":
+					fmt_map.update({'res':res_index[pair[1]]}) 
+				if pair[0] == "type":
+					mime = (pair[1].split(";"))[0]
+					#multiplexed standard formats have audio and video both
+					#even if their mime says only "video". Hence override 
+					#media = ((mime.split("/"))[0])
+					media = "audio-video"
+					fmt = ((mime.split("/"))[1])
+					c = pair[1].find("codec")
+					codec = ((pair[1].split("codecs="))[1]).strip("\"") if (c>0) else fmt 
+					fmt_map.update({'mime':mime,'media':media,'fmt':fmt,'codec':codec}) 
+			
+			fmt_stream_map.append(fmt_map)
+        
+		fmt_stream_map = sorted(fmt_stream_map, key= lambda k: (int(k['res'])+int(k['fps'])), reverse=True) 
 
 	adp_stream_map_a = list()
 	adp_stream_map_v = list()
-	for smap in encoded_map_adp:
-		adp_map_list = smap.split("&") 
-		adp_map = dict({'stream':"adp", 'fps':"30"}) #Keep 30 fps as default. If the key exist, will be overwritten
-		for sm in adp_map_list:
-			pair = sm.split("=")
-			pair[1] = urllib.unquote(pair[1]).decode('utf8')
-			pair[1] = urllib.unquote(pair[1]).decode('utf8')
-			adp_map.update({str(pair[0]):str(pair[1])}) 
-			if pair[0] == "quality":
-				adp_map.update({'res':res_index[pair[1]]}) 
-			if pair[0] == "size": 
-				resw, resh = pair[1].split("x")
-				adp_map.update({'res':int(resh)}) 
-			if pair[0] == "type":
-				mime = ((pair[1].split(";"))[0])
-				media, fmt  = mime.split("/")
-				c = pair[1].find("codec")
-				codec = ((pair[1].split("codecs="))[1]).strip("\"") if (c>0) else fmt 
-				adp_map.update({'mime':mime,'media':media,'fmt':fmt,'codec':codec}) 
 
-		if 'res' not in adp_map:
-			adp_map.update({'res':'0'}) 
-		# Dropping other than 'mp4' formats as they might not mux with mp4 vid 
-		if fmt == "mp4": 
-			if media == "video":
-				adp_stream_map_v.append(adp_map)
-			elif media == "audio":
-				adp_stream_map_a.append(adp_map)
-			else:
-				logr.warning("unknown media ....%s",media) 
-			
-	adp_stream_map_v = sorted(adp_stream_map_v, key= lambda k: (int(k['res'])+int(k['fps'])), reverse=True) 
-	adp_stream_map_a = sorted(adp_stream_map_a, key= lambda k: int(k['bitrate']), reverse=True) 
+	if (len(encoded_map_adp) > 0) :
+		for smap in encoded_map_adp:
+			if "&" not in smap :
+				continue
+			adp_map_list = smap.split("&") 
+			adp_map = dict({'stream':"adp", 'fps':"30"}) #Keep 30 fps as default. If the key exist, will be overwritten
+			for sm in adp_map_list:
+				pair = sm.split("=")
+				pair[1] = urllib.unquote(pair[1]).decode('utf8')
+				pair[1] = urllib.unquote(pair[1]).decode('utf8')
+				adp_map.update({str(pair[0]):str(pair[1])}) 
+				if pair[0] == "quality":
+					adp_map.update({'res':res_index[pair[1]]}) 
+				if pair[0] == "size": 
+					resw, resh = pair[1].split("x")
+					adp_map.update({'res':int(resh)}) 
+				if pair[0] == "type":
+					mime = ((pair[1].split(";"))[0])
+					media, fmt  = mime.split("/")
+					c = pair[1].find("codec")
+					codec = ((pair[1].split("codecs="))[1]).strip("\"") if (c>0) else fmt 
+					adp_map.update({'mime':mime,'media':media,'fmt':fmt,'codec':codec}) 
+        
+			if 'res' not in adp_map:
+				adp_map.update({'res':'0'}) 
+			# Dropping other than 'mp4' formats as they might not mux with mp4 vid 
+			if fmt == "mp4": 
+				if media == "video":
+					adp_stream_map_v.append(adp_map)
+				elif media == "audio":
+					adp_stream_map_a.append(adp_map)
+				else:
+					logr.warning("unknown media ....%s",media) 
+				
+		adp_stream_map_v = sorted(adp_stream_map_v, key= lambda k: (int(k['res'])+int(k['fps'])), reverse=True) 
+		adp_stream_map_a = sorted(adp_stream_map_a, key= lambda k: int(k['bitrate']), reverse=True) 
 
 	caption_map = list() 
 	if(args.has_key('caption_tracks')): 
@@ -314,13 +320,13 @@ def parse_stream_map(args):
 			caption_map.append(cap_map)
 
 	## ==== Attach all map variables ==============
-	page_map = dict() 
-	page_map['std']		= fmt_stream_map
-	page_map['adp_v']	= adp_stream_map_v
-	page_map['adp_a']	= adp_stream_map_a
-	page_map['caption'] 	= caption_map
+	stream_map = dict() 
+	stream_map['std']	= fmt_stream_map
+	stream_map['adp_v']	= adp_stream_map_v
+	stream_map['adp_a']	= adp_stream_map_a
+	stream_map['caption'] 	= caption_map
 
-	return page_map 
+	return stream_map 
 
 def smap_to_str(s):
 	if s['media'] == "audio-video":
@@ -332,6 +338,38 @@ def smap_to_str(s):
 	if s['media'] == "caption":
 		return '[%s] %s, %s :%s'%(s['media'],s['lang'],s['fmt'],s['name']) 
 	
+def ytmeta_load_vid(vid):
+	logr = setup_item_logger(vid) 
+
+	vid_meta = dict() 
+	wpage = get_watch_page(vid) 	# wpage = watch_page
+	if( (wpage['code'] != 200) or (wpage['len'] ==0) )  :	#only HTML code for success is 200 OK
+		log.error("Can't Download item %s:Unable to fetch page. Response %d\nURL:%s",vid,watch_page['code'],watch_page['url']) 
+		vid_meta['status'] = "NO_PAGE" 
+		vid_meta['watch_page'] = wpage 
+		return vid_meta
+	else: 
+		logr.debug("Got the watch page: %s [%d bytes]",wpage['url'],wpage['len']) 
+
+	vid_meta =  parse_watch_page (wpage['contents'])	
+	if(vid_meta['player_args'] == None):
+		logr.error("Can't Download item %s:Unable to parse page or bad page",vid) 
+		vid_meta['status'] = "BAD_PAGE" 
+		return vid_meta
+
+	vid_meta['stream_map'] =  parse_stream_map(vid_meta)	
+	if not (vid_meta['stream_map']):
+		logr.error("Can't Download item %s:Error parsing of the page",vid) 
+		vid_meta['status'] = "NO_STREAMS"
+		return vid_meta 
+
+	print_pretty(logr,"Parsing successful: vid_meta "+"="*20,vid_meta) 
+
+	vid_meta['status'] = "OK" 
+	return vid_meta 
+
+
+#==== Download Related funcitons ===============================================
 def dlProgress(count, blockSize, totalSize):
 	logm = logging.getLogger() 
 	logr = logging.getLogger(vid) 
@@ -504,31 +542,18 @@ def download_streams(dlItem, folder):
 # dlItem should be a class! 
 # dlItem should also have a better name
 def download_item(vid,folder):
-	logr = setup_item_logger(vid) 
+	logr = logging.getLogger(vid) 
 
-	watch_page = get_watch_page(vid) 	
-	if( (watch_page['code'] != 200) or (watch_page['len'] ==0) )  :	#only HTML code for success is 200 OK
-		log.error("Can't Download item %s:Unable to fetch page. Response %d\nURL:%s",vid,watch_page['code'],watch_page['url']) 
-		return -1 
-	else: 
-		logr.debug("Got the watch page: %s [%d bytes]",watch_page['url'],watch_page['len']) 
+	dlItem = ytmeta_load_vid(vid)
 
-	dlItem =  parse_watch_page (watch_page['contents'])	
-	if(dlItem['player_args'] == None):
-		logr.error("Can't Download item %s:Unable to parse page or bad page",vid) 
-		return -2
-	dlItem['stream_map'] = sm =  parse_stream_map(dlItem)	
+	if (dlItem['status'] != "OK"):
+		return 
 
-	print_pretty(logr,"Parsing successful: dlItem "+"="*20,dlItem) 
-
-	if not (dlItem['stream_map']):
-		logr.error("Can't Download item %s:Error parsing of the page",vid) 
-		return -3
-
-	logr.debug("= Available Streams: "+"="*25+"\n"+
-		"\n".join(map(smap_to_str,sm['std'] + sm['adp_v'] + sm['adp_a'] + sm['caption'] )))
+	smap = dlItem['stream_map']
+	sm = smap['std'] + smap['adp_v'] + smap['adp_a'] + smap['caption'] 
+	logr.debug("= Available Streams: "+"="*25+"\n"+"\n".join(map(smap_to_str,sm)))
 	 
-	dlItem['select_map'] = sl =  select_best_stream(dlItem['stream_map']) 
+	dlItem['select_map'] = sl =  select_best_stream(smap) 
 	logr.debug("= Selected Streams: "+"="*25+"\n"+"\n".join(map(smap_to_str,sl))+"\n")  
 
 	# stream_map, select_map can be public elements so that they can be logged and print outside. 

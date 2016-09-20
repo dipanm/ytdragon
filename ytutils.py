@@ -30,7 +30,7 @@ def write_to_file(filename,blob):
 # Take a wrappe that will print extra message and lines if you like and move both to the utils 
 def print_pretty(logr,key,value,indent=0):
 	max_depth = 3; 
-	if ( isinstance(value, dict) and (indent < max_depth) ): 
+	if ( isinstance(value, dict) and (indent < max_depth) and (len(value)>0) ): 
 		if(indent == 0): 
 			logr.debug(str(key))
 		else: 	
@@ -41,7 +41,7 @@ def print_pretty(logr,key,value,indent=0):
 		if(indent == 0): 
                 	logr.debug(str(key))
 		else: 	
-			if (isinstance(value[0], list) or isinstance(value[0], dict) ): 
+			if (len(value) > 0) and ((isinstance(value[0], list) or isinstance(value[0], dict) )): 
                          	logr.debug('\t' * (indent-1) + "[" + str(key) + "] :")
 				for i, lval in enumerate(value) : 
  	 	       			print_pretty(logr,i,lval,indent+1) 
