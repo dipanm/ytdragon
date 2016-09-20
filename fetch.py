@@ -26,6 +26,7 @@ from HTMLParser import HTMLParser
 
 from ytutils import clean_up_title 
 from ytutils import write_to_file
+from ytutils import print_pretty
 
 ### User Config Variable ----------------------------
 
@@ -216,16 +217,6 @@ def parse_watch_page(page):
 		dlItem['has_caption']   = False 
 	
 	return dlItem 
-
-# Take a wrappe that will print extra message and lines if you like and move both to the utils 
-def print_pretty(d,indent=0):
-   logr = logging.getLogger(vid) 
-   for key, value in d.iteritems():
-      if isinstance(value, dict):
-         logr.debug('\t' * indent + "[" + str(key) +"]")
-         print_pretty(value, indent+1)
-      else:
-         logr.debug('\t' * (indent) + "[" + str(key) + "] : " + str(value))
 
 def parse_stream_map(args):
 	logr = logging.getLogger(vid) 
@@ -523,20 +514,19 @@ def download_item(vid,folder):
 	if(dlItem['player_args'] == None):
 		logr.error("Can't Download item %s:Unable to parse page or bad page",vid) 
 		return -2
-	dlItem['stream_map'] = parse_stream_map(dlItem)	
+	dlItem['stream_map'] = sm =  parse_stream_map(dlItem)	
 
-	logr.debug("== Parsing of page succesful :========================================") 
-	print_pretty(dlItem) 
+	print_pretty(logr,"Parsing successful: dlItem "+"="*20,dlItem) 
 
 	if not (dlItem['stream_map']):
 		logr.error("Can't Download item %s:Error parsing of the page",vid) 
 		return -3
 
-	logr.debug("Stream_list:\n"+"\n".join(map(smap_to_str,dlItem['stream_map']['std'] 
-		+ dlItem['stream_map']['adp_v'] + dlItem['stream_map']['adp_a'] + dlItem['stream_map']['caption'] )))
+	logr.debug("= Available Streams: "+"="*25+"\n"+
+		"\n".join(map(smap_to_str,sm['std'] + sm['adp_v'] + sm['adp_a'] + sm['caption'] )))
 	 
-	dlItem['select_map'] = select_best_stream(dlItem['stream_map']) 
-	logr.debug("Select_list:\n"+"\n".join(map(smap_to_str,dlItem['select_map'])))  
+	dlItem['select_map'] = sl =  select_best_stream(dlItem['stream_map']) 
+	logr.debug("= Selected Streams: "+"="*25+"\n"+"\n".join(map(smap_to_str,sl))+"\n")  
 
 	# stream_map, select_map can be public elements so that they can be logged and print outside. 
 	logr.info("Downloading Item:[%s] '%s'",dlItem['vid'],dlItem['title']) 
