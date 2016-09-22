@@ -31,8 +31,8 @@ from meta import load_video_meta
 quite = False 
 enable_line_log = True 
 line_log_path  = "./ytdragon.log" 
-enable_item_log  = True 
-itemlog_path = "./logs"
+enable_vid_log  = True 
+vidlog_path = "./logs"
 deep_debug = True 
 
 default_host = "youtube.com" 
@@ -60,13 +60,13 @@ def setup_main_logger():
  
 	return logm
 	
-def setup_item_logger(vid):
+def setup_vid_logger(vid):
 	logr = logging.getLogger(vid) 
 
-	if(enable_item_log):
-		if not os.path.exists(itemlog_path):
-			os.makedirs(itemlog_path)	
-		logr.addHandler(logging.FileHandler(itemlog_path.rstrip('/')+"/"+vid+".log")) 
+	if(enable_vid_log):
+		if not os.path.exists(vidlog_path):
+			os.makedirs(vidlog_path)	
+		logr.addHandler(logging.FileHandler(vidlog_path.rstrip('/')+"/"+vid+".log")) 
 		logr.setLevel(logging.DEBUG)
 	else: 
 		logr.addHandler(logging.NullHandler())
@@ -210,12 +210,12 @@ def convert_time_format(ftime):
         )
 
 
-def download_caption(dlItem, folder):
+def download_caption(vidmeta, folder):
 	logr = logging.getLogger(vid) 
 
-	title = clean_up_title(dlItem['title']) 
-	uid = dlItem['vid'] 
-	select_map = dlItem['select_map']
+	title = clean_up_title(vidmeta['title']) 
+	uid = vidmeta['vid'] 
+	select_map = vidmeta['select_map']
 	path = folder.rstrip('/')+"/"+str(title)+"_-_"+str(uid)+"."+"srt"
 
 	for smap in select_map:
@@ -241,12 +241,12 @@ def download_caption(dlItem, folder):
 			break;
 
 
-def download_streams(dlItem, folder):
+def download_streams(vidmeta, folder):
 	logr = logging.getLogger(vid) 
 
-	title = dlItem['title'] 
-	uid = dlItem['vid'] 
-	select_map = dlItem['select_map']
+	title = vidmeta['title'] 
+	uid = vidmeta['vid'] 
+	select_map = vidmeta['select_map']
 	out_fmt = "mp4"
  
 	separated = 1; 	# Assume sepeated content by default. If not, no need to merge 
@@ -282,27 +282,25 @@ def download_streams(dlItem, folder):
 #---------------------------------------------------------------
 # Top level functions for Main 
 
-# dlItem should be a class! 
-# dlItem should also have a better name
-def download_item(vid,folder):
-	logr = setup_item_logger(vid) 
+def download_video(vid,folder):
+	logr = setup_vid_logger(vid) 
 
-	dlItem = load_video_meta(vid)
+	vidmeta = load_video_meta(vid)
 
-	if (dlItem['status'] != "OK"):
+	if (vidmeta['status'] != "OK"):
 		return 
 
-	smap = dlItem['stream_map']
+	smap = vidmeta['stream_map']
 	sm = smap['std'] + smap['adp_v'] + smap['adp_a'] + smap['caption'] 
 	logr.debug("= Available Streams: "+"="*25+"\n"+"\n".join(map(smap_to_str,sm)))
 	 
-	dlItem['select_map'] = sl =  select_best_stream(smap) 
+	vidmeta['select_map'] = sl =  select_best_stream(smap) 
 	logr.debug("= Selected Streams: "+"="*25+"\n"+"\n".join(map(smap_to_str,sl))+"\n")  
 
 	# stream_map, select_map can be public elements so that they can be logged and print outside. 
-	logr.info("\tTitle:'%s'\n\tAuthor:'%s'",dlItem['title'],dlItem['author'])  
-	download_streams(dlItem,folder)	# TODO: this will only take dlItem in future 
-	download_caption(dlItem,folder)
+	logr.info("\tTitle:'%s'\n\tAuthor:'%s'",vidmeta['title'],vidmeta['author'])  
+	download_streams(vidmeta,folder)	
+	download_caption(vidmeta,folder)
 	logr.info("\tFetch Complete @ %s ----------------",str(datetime.datetime.now()))
 
 	return
@@ -315,7 +313,7 @@ def download_list(url_list,folder) :
 		if( url['status'] == "OK"): 
 			vid = url['id']
 			logm.info("Downloading item %d %s : %s",i,url['id'],str(datetime.datetime.now()))
-			download_item(url['id'],folder) 
+			download_video(url['id'],folder) 
 			i += 1
 		elif ((url['status'] == "SKIP") or (url['status'] == "ERROR")) : 
 			logm.info("Download item %d [%s] : vid = %s : %s",i,url['status'],url['id'],"\t".join(url['attrs']) ) 
@@ -330,14 +328,14 @@ def read_list(listfile):
 	lf  = open(listfile, "r")
 	for line in lf:
 		if line.strip():
-			item = dict() 
+			vid = dict() 
 			l = line.rstrip().split("#",1) 
 			attrs = l[0].split('\t') 
 			id_str = attrs[0] if(len(attrs) > 0) else "" 
-			item["comment"] = l[1].strip() if(len(l) > 1) else "" 
-			item["status"], item["id"] = get_vid_from_url(id_str) 
-			item["attrs"] = attrs[1:] if (len(attrs)>0) else "" 
-			url_list.append(item) 
+			vid["comment"] = l[1].strip() if(len(l) > 1) else "" 
+			vid["status"], vid["id"] = get_vid_from_url(id_str) 
+			vid["attrs"] = attrs[1:] if (len(attrs)>0) else "" 
+			url_list.append(vid) 
 		i += 1 
 
 	return  url_list  
@@ -347,15 +345,14 @@ def read_list(listfile):
 
 def parse_arguments(argv): 
 	logm = logging.getLogger() 
-	usage_str = "Usage: %s -f|--folder='destination' -i|--item='id'/'watch_url' OR -l|--list='url_list'"
-	vid = '' 
-	item = ''
+	usage_str = "Usage: %s -f|--folder='destination' -v|--vid='videoid'/'watch_url' OR -l|--list='url_list'"
+	vidref = ''
 	ulist = '' 
 	folder = ''
 	list_mode = 0 
 
 	try:
-		opts, args = getopt.getopt(argv,"f:i:l:",["item=","list="])
+		opts, args = getopt.getopt(argv,"f:v:l:",["vid=","list="])
 	except getopt.GetoptError as err:
 		logm.error("Error in Options: %s",str(err)) 
 		logm.critical(usage_str,sys.argv[0])
@@ -368,8 +365,8 @@ def parse_arguments(argv):
 	for opt, arg in opts:
 		if opt in ("-f", "--folder"):
 			folder = arg
-		elif opt in ("-i","--item"):
-			item = arg 
+		elif opt in ("-v","--vid"):
+			vidref = arg 
 			list_mode = 0 
 		elif opt in ("-l","--list"):
 			ulist = arg
@@ -381,30 +378,30 @@ def parse_arguments(argv):
 	else:
 		logm.debug("Destination folder for streams: %s",folder) 
 
-	if ( item  == '' and ulist == '' ): 
-		logm.critical("Missing source. Either supply item (id/url)  OR file with url_list") 
+	if ( vidref  == '' and ulist == '' ): 
+		logm.critical("Missing source. Either supply videoId (id/url)  OR file with url_list") 
 		logm.critical(usage_str,sys.argv[0])
 		sys.exit(2)
 
-	return folder, item, ulist, list_mode 
+	return folder, vidref, ulist, list_mode 
 
 #---------------------------------------------------------------
 # Main function
 
 logm = setup_main_logger() 
 
-(folder, item, ulist, list_mode) = parse_arguments(sys.argv[1:]) 
+(folder, vidref, ulist, list_mode) = parse_arguments(sys.argv[1:]) 
 vid = '-'
 
 if(list_mode == 1): 
 	url_list = read_list(ulist) 
-	logm.info("Downloading %d items from list %s",len(url_list),ulist) 
+	logm.info("Downloading %d videos from list %s",len(url_list),ulist) 
 	download_list(url_list,folder) 
 else:
-	status, vid = get_vid_from_url(item)
+	status, vid = get_vid_from_url(vidref)
 	if(status == "OK") : 
-		logm.info("Downloading item: [%s]",vid) 
-		download_item(vid,folder) 
+		logm.info("Downloading video: [%s]",vid) 
+		download_video(vid,folder) 
 	else : 
 		logm.info("Unable to download vid %s: %s",vid,status) 
 
