@@ -38,6 +38,10 @@
 #	- generic policies in what to fetch : AudioOnly/VideoOnly/AV, Max res, 
 #	- post processing of video. e.g. convert to mp3
 #	- in case of multiple parallel downloads, the current \r funda won't work. So need central reporting engine.
+#	- If youtube throws 404/403 - in actual downloads. it should not proceed like a normal flow. Exception should be handled.
+#	- Deal with signatured streams that otherwise throws 403 (e.g. '-RMD88DNaGk') 
+#	- MD5 or play duration verification of Media files (large ones) 
+#	- Resume incomplete downloads from where they were left 
 #----------------------------------------------------------------------------------------------------
 # Code TODO 
 #	- clean up overall flow of messages on console and in logs 
@@ -58,6 +62,7 @@
 #	- it's time, the code must have classes for important stuff. 
 #	- pretty_print to take care of list specially?
 #	- id from url should also be generalized for video/playlist/channels/user 
+#	- geting page, streams and captions all have different types of download functions. Generalize!
 #-----------------------------------------------------------------------------------------------------
 
 
