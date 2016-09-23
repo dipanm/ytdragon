@@ -17,24 +17,34 @@ deep_debug = True
 default_host = "youtube.com" 
 default_hurl = "https://"+default_host 
 
-global logr 
+#global logr 
 
-def get_watch_page(vid):
+#------ Exception Handling class -----------------------------------------------
+class ytd_exception_meta(Exception): 
+	error_table = { "PAGE_FETCH_ERR": "Can't fetch watch page", 
+			"YOUTUBE_ERROR"	: "Youtube Can't serve this page!", # Raised in parse_watch_page() 
+			"BAD_PAGE" 	: "Unable to parse page or illformed page", 
+			"NO_STREAMS" 	: "Download stream_map not available" }   
+			
+	def __init__(self,error,page,meta,extra_msg): 
+		self.errtype	= error
+		self.errmsg	= self.error_table[error] if self.error_table.has_key(error) else "Unknown" 
+		self.page	= page
+		self.vidmeta	= meta
+		self.msgstr 	= extra_msg
 
-	page = { 'code' : -1, 'contents' : ""} 
-	url = "https://www.youtube.com/watch?v="+vid
 
-	response = urllib.urlopen(url)
-	page['url'] = url
-	page['code'] = response.getcode() 
-	page['contents'] = response.read()
-	page['len']  = len(page['contents']) 
-
-	if(deep_debug): 	# The page should be return as part of exception - so this var is not needed 
-		write_to_file(vid+".html",page['contents']) 
-
-	return page 
-
+##--- support functions -------------------------------------------------------
+def smap_to_str(s):
+	if s['media'] == "audio-video":
+		return '[%s] %s (%s);%s'%(s['media'],s['quality'],str(s['res']),s['type']) 
+	if s['media'] == "video":
+		return '[%s] %s (%s);%s'%(s['media'],s['quality_label'],str(s['size']),s['type']) 
+	if s['media'] == "audio":
+		return '[%s] %s kbps;%s'%(s['media'],int(s['bitrate'])/1024,s['type']) 
+	if s['media'] == "caption":
+		return '[%s] %s, %s :%s'%(s['media'],s['lang'],s['fmt'],s['name']) 
+	
 def extract_player_args(script): 
 	player_script = ""
 
@@ -57,9 +67,26 @@ def extract_player_args(script):
 			break;
 
 	return player_script[p1:p2] 
-	
-def parse_watch_page(page):
 
+
+#------ Page fetch and parsing - called by load_vid_meta -----------------------
+
+def get_watch_page(vid):
+
+	page = { 'code' : -1, 'contents' : ""} 
+	url = "https://www.youtube.com/watch?v="+vid
+
+	response = urllib.urlopen(url)
+	page['url'] = url
+	page['code'] = response.getcode() 
+	page['contents'] = response.read()
+	page['len']  = len(page['contents']) 
+
+	return page 
+
+def parse_watch_page(wpage):
+
+	page = wpage['contents'] 
 	arg_keys = { 'length_seconds', 'loudness', 'timestamp', 'host_language', 'avg_rating', 'view_count', 'thumbnail_url', 
 	   'fmt_list', 'adaptive_fmts', 'url_encoded_fmt_stream_map', 'caption_tracks', 'caption_translation_languages' } 
 
@@ -76,17 +103,12 @@ def parse_watch_page(page):
 	script = tree.xpath('//script[contains(.,"ytplayer")]/text()') 
 	player_script = extract_player_args(script) 
 	if (player_script == ""):
-		error = " ".join(map(str.strip, tree.xpath('//div[@id="player-unavailable"]//text()'))) 
-		logr.critical("Video Unavailable: %s",error) 
-		return None
+		plerror = " ".join(map(str.strip, tree.xpath('//div[@id="player-unavailable"]//text()'))) 
+		raise ytd_exception_meta("YOUTUBE_ERROR",wpage,vid_meta,plerror) 
 
 	# extract player args from the player script 	
 	arg_list = json.loads(player_script)
-	if not (arg_list.has_key('args')): 
-		logr.critical("The watch page is not a standard youtube page") 
-		args = None 
-	else:
-		args = arg_list['args'] 	
+	args = arg_list['args'] if arg_list.has_key('args') else None 
 
 	# populate the attributes
 	vid_meta['author'] 		= " ".join(map(str.strip, tree.xpath("//div[@class='yt-user-info']//text()"))).strip()
@@ -124,7 +146,6 @@ def parse_stream_map(args):
 	encoded_map_adp = args['adaptive_fmts'].split(",") if(args.has_key('adaptive_fmts')) else list() 
 	
 	if( (len(encoded_map) ==0) and (len(encoded_map_adp) == 0)):
-		logr.critical("Unable to find stream_map") 
 		return None 
 
 	res_index = {'small':'240','medium':'360','high':'480','large':'480','hd720':'720','1440p':'1440','1080p':'1080'} 
@@ -192,8 +213,8 @@ def parse_stream_map(args):
 					adp_stream_map_v.append(adp_map)
 				elif media == "audio":
 					adp_stream_map_a.append(adp_map)
-				else:
-					logr.warning("unknown media ....%s",media) 
+				#else:
+				#	logr.warning("unknown media ....%s",media) 
 				
 		adp_stream_map_v = sorted(adp_stream_map_v, key= lambda k: (int(k['res'])+int(k['fps'])), reverse=True) 
 		adp_stream_map_a = sorted(adp_stream_map_a, key= lambda k: int(k['bitrate']), reverse=True) 
@@ -229,45 +250,22 @@ def parse_stream_map(args):
 
 	return stream_map 
 
-def smap_to_str(s):
-	if s['media'] == "audio-video":
-		return '[%s] %s (%s);%s'%(s['media'],s['quality'],str(s['res']),s['type']) 
-	if s['media'] == "video":
-		return '[%s] %s (%s);%s'%(s['media'],s['quality_label'],str(s['size']),s['type']) 
-	if s['media'] == "audio":
-		return '[%s] %s kbps;%s'%(s['media'],int(s['bitrate'])/1024,s['type']) 
-	if s['media'] == "caption":
-		return '[%s] %s, %s :%s'%(s['media'],s['lang'],s['fmt'],s['name']) 
-	
+#---- The primary API function: load_video_meta() -----------------------------
 def load_video_meta(vid):
-	logr = logging.getLogger(vid) 
+	#logr = logging.getLogger(vid) 
 
 	vid_meta = dict() 
 	wpage = get_watch_page(vid) 	# wpage = watch_page
 	if( (wpage['code'] != 200) or (wpage['len'] ==0) )  :	#only HTML code for success is 200 OK
-		log.error("Can't Download item %s:Unable to fetch page. Response %d\nURL:%s",vid,watch_page['code'],watch_page['url']) 
-		vid_meta['status'] = "NO_PAGE" 
-		vid_meta['watch_page'] = wpage 
-		return vid_meta
-	else: 
-		logr.debug("Got the watch page: %s [%d bytes]",wpage['url'],wpage['len']) 
+		raise ytd_exception_meta("PAGE_FETCH_ERR",wpage,vid_meta,"HTTP Error Code-{}".format(wpage['code']) ) 
 
-	vid_meta =  parse_watch_page (wpage['contents'])	
+	vid_meta =  parse_watch_page (wpage)
 	if(vid_meta['player_args'] == None):
-		logr.error("Can't Download item %s:Unable to parse page or bad page",vid) 
-		vid_meta['status'] = "BAD_PAGE" 
-		return vid_meta
+		raise ytd_exception_meta("BAD_PAGE",wpage,vid_meta,"") 
 
 	vid_meta['stream_map'] =  parse_stream_map(vid_meta)	
 	if not (vid_meta['stream_map']):
-		logr.error("Can't Download item %s:Error parsing of the page",vid) 
-		vid_meta['status'] = "NO_STREAMS"
-		return vid_meta 
+		raise ytd_exception_meta("NO_STREAMS",wpage,vid_meta,"") 
 
-	print_pretty(logr,"Parsing successful: vid_meta "+"="*20,vid_meta) 
-
-	vid_meta['status'] = "OK" 
 	return vid_meta 
-
-
 

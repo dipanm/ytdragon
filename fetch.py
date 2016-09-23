@@ -25,6 +25,7 @@ from ytutils import print_pretty
 
 from meta import smap_to_str
 from meta import load_video_meta
+from meta import ytd_exception_meta
 
 ### User Config Variable ----------------------------
 
@@ -285,10 +286,27 @@ def download_streams(vidmeta, folder):
 def download_video(vid,folder):
 	logr = setup_vid_logger(vid) 
 
-	vidmeta = load_video_meta(vid)
-
-	if (vidmeta['status'] != "OK"):
+	try:
+		vidmeta = load_video_meta(vid)
+	except ytd_exception_meta as e: 
+		if (e.errtype == "PAGE_FETCH_ERR"): 
+			logr.critical("\t{} :{}".format(e.errmsg,e.msgstr))
+		if (e.errtype == "YOUTUBE_ERROR"): 
+			logr.critical(e.errmsg) 
+			logr.info("-"*45+"\n"+e.msgstr+"\n"+"-"*45) 
+		if (e.errtype == "BAD_PAGE") : 
+			logr.critical("\t"+e.errmsg) 
+			print_pretty(logr,"Parsing failed: vid_meta "+"="*20,e.vidmeta) 
+		if (e.errtype == "NO_STREAMS") : 
+			logr.info("\tTitle:'%s'\n\tAuthor:'%s'",e.vidmeta['title'],e.vidmeta['author'])  
+			logr.critical("\t"+e.errmsg) 
+			print_pretty(logr,"Parsing failed: vid_meta "+"="*20,e.vidmeta) 
+				
+		if(deep_debug): 
+			write_to_file(vid+".html",e.page['contents']) 
 		return 
+
+	print_pretty(logr,"Parsing successful: vid_meta "+"="*20,vidmeta) 
 
 	smap = vidmeta['stream_map']
 	sm = smap['std'] + smap['adp_v'] + smap['adp_a'] + smap['caption'] 
