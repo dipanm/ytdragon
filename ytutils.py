@@ -49,7 +49,7 @@ def print_pretty(logr,key,value,indent=0):
  	 	       		logr.debug('\t' * (indent-1) + "["+key+"] : ["+",".join(value)+"]") 
 	else:
 		if(indent == 0): 
-        		logr.debug(str(key)+"="+value)
+        		logr.debug(str(key)+"="+str(value)) 
 		else:
          		logr.debug('\t' * (indent-1) + "[" + str(key) + "] : " + str(value))
 
