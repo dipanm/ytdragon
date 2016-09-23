@@ -204,7 +204,7 @@ def download_caption(vidmeta, folder):
 def download_streams(vidmeta, folder):
 	logr = logging.getLogger(vid) 
 
-	title = vidmeta['title'] 
+	title = clean_up_title(vidmeta['title']) 
 	uid = vidmeta['vid'] 
 	select_map = vidmeta['select_map']
 	out_fmt = "mp4"
@@ -237,7 +237,7 @@ def download_streams(vidmeta, folder):
 		outfile = folder.rstrip('/')+"/"+str(title)+"_-_"+str(uid)+"."+out_fmt 
 		combine_streams(temp_files,outfile,1)
 
-	logr.info("\t[Outfile]: '%s'",outfile)
+	logr.info("\t[Outfile] '%s'",outfile)
 
 #---------------------------------------------------------------
 # Top level functions for Main 
