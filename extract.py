@@ -30,6 +30,7 @@ from xml.dom import minidom
 from HTMLParser import HTMLParser
 
 from ytutils import clean_up_title 
+from meta    import load_video_meta
 
 ### User Config Variable ----------------------------
 
@@ -170,7 +171,7 @@ def print_playlist(playlist):
 
 	print "#--------------------------------------------------------"
 	for l in plist: 
-		print l['vid']+"\t"+l['title'] 
+		print l['vid']+"\t"+l['max_res']+"\t"+l['title'] 
 
 	return 
 
@@ -190,10 +191,53 @@ def save_playlist(playlist,filename):
 	fp.write("# Item count: Total="+str(playlist['total'])+" Available ="+str(len(plist))+" Deleted="+str(del_items)+"\n")
 	fp.write("#-------------------------------------------------------\n")
 	for l in plist: 
-		fp.write(l['vid']+"\t"+l['duration'].rjust(10)+"\t"+l['title']+"\n")
+		fp.write(l['vid']+"\t"+l['duration'].rjust(10)+"\t"+l['max_res'].rjust(10)+"\t"+l['title']+"\n")
 	
 	fp.close() 
 	return 
+
+def convert_secs_to_time(seconds) :
+	m, s = divmod(int(seconds), 60)
+	h, m = divmod(m, 60)
+	time = "%d:%02d:%02d" % (h, m, s)
+	
+	return time 
+
+def status_update(i, total, vid, title,lslen) :
+	status_str = "\rProcessing: %d of %d :[%s]:%s" % (i, total,vid, title)
+	sys.stdout.write("\r"+" "*lslen) 
+	sys.stdout.write(status_str) 
+	sys.stdout.flush()
+	return len(status_str) 
+
+def load_meta_info(plist) :
+	
+	total = len(plist) 
+	lslen = 1 
+	i = 0 
+	for v in plist: 
+		i += 1 
+		lslen = status_update(i, total,v['vid'],v['title'],lslen) 
+		try : 
+			vmeta = load_video_meta(v['vid']) 
+		except: 
+			v['max_res']  = ""
+			v['filesize'] = 0 
+			continue 
+
+		v['max_res'] = vmeta['max_res'] 
+		v['duration'] = convert_secs_to_time(vmeta['length_seconds']) 
+		v['author']  = vmeta['author'] 
+		v['filesize'] = vmeta['filesize'] 
+		
+		flags = "V" if vmeta['type'] == "video" else "A"
+		flags = flags + "-CC" if vmeta['has_caption'] else "" 
+		flags = flags + "-$" if vmeta['paid'] else "" 
+		flags = flags + "-x" if vmeta['isFamilyFriendly'] else "" 
+	
+	sys.stdout.write("\r"+" "*lslen+"\n")
+	sys.stdout.flush()
+	return plist 
 
 def extract_playlist(pl_page): 
 
@@ -214,6 +258,8 @@ def extract_playlist(pl_page):
 		lmurl = parse_lmwidget(ajax_resp['lm_widget']) 
 		count += 1
 	
+	print "Got Play list [{}]: {} having {} items".format(playlist['plid'],playlist['title'],len(plist)) 
+	plist = load_meta_info(plist) 
 	playlist['list'] = plist
 	playlist['total'] = len(plist) 
 	return playlist 
