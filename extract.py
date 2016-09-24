@@ -161,14 +161,20 @@ def parse_lmwidget(lmore):
 #---------------------------------------------------------------
 # Top level functions for Main 
 
-def print_playlist(playlist): 
-	plist = playlist['list'] 
+def print_playlist_header(playlist): 
 	print "# Playlist: "+playlist['plid']
 	print "# Title: "+playlist['title']
 	print "# Owner: "+playlist['owner']
+
+def print_playlist_stats(playlist): 
+	plist = playlist['list'] 
 	del_items = playlist['total']-len(plist)
 	print "# Item count: Total="+str(playlist['total'])+" Available ="+str(len(plist))+" Unavailable="+str(del_items)
 
+def print_playlist(playlist): 
+	plist = playlist['list'] 
+	print_playlist_header(playlist)
+	print_playlist_stats(playlist)
 	print "#--------------------------------------------------------"
 	for l in plist: 
 		print l['vid']+"\t"+l['max_res']+"\t"+l['title'] 
@@ -258,7 +264,9 @@ def extract_playlist(pl_page):
 		lmurl = parse_lmwidget(ajax_resp['lm_widget']) 
 		count += 1
 	
-	print "Got Play list [{}]: {} having {} items".format(playlist['plid'],playlist['title'],len(plist)) 
+	#print "Got Play list [{}]: {} having {} items".format(playlist['plid'],playlist['title'],len(plist)) 
+	print_playlist_header(playlist) 
+
 	plist = load_meta_info(plist) 
 	playlist['list'] = plist
 	playlist['total'] = len(plist) 
@@ -322,8 +330,8 @@ plist = extract_playlist(pl_page)
 
 plist = prune_playlist(plist)
 
-#print_playlist(plist) 
 save_playlist(plist,outfile) 
+print_playlist_stats(plist) 
 
 #logm.info("Good bye... Get those videos!") 
 
