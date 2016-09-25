@@ -31,6 +31,7 @@ from HTMLParser import HTMLParser
 
 from ytutils import clean_up_title 
 from meta    import load_video_meta
+from meta    import ytd_exception_meta
 
 ### User Config Variable ----------------------------
 
@@ -42,6 +43,7 @@ itemlog_path = "./logs"
 deep_debug = False
 
 youtube = "https://www.youtube.com"
+unavail_list = { "[Deleted Video]", "[Private Video]" } 
 
 #### -- Logging Related Functions -------------------
 
@@ -222,13 +224,16 @@ def load_meta_info(plist) :
 	lslen = 1 
 	i = 0 
 	for v in plist: 
+		v['max_res']  = ""	# This is default if any of the exceptions skip filling them.
+		v['filesize'] = 0 
 		i += 1 
 		lslen = status_update(i, total,v['vid'],v['title'],lslen) 
+
+		if(v['title'] in unavail_list): 
+			continue	
 		try : 
 			vmeta = load_video_meta(v['vid']) 
-		except: 
-			v['max_res']  = ""
-			v['filesize'] = 0 
+		except ytd_exception_meta as e:  
 			continue 
 
 		v['max_res'] = vmeta['max_res'] 
@@ -274,7 +279,6 @@ def extract_playlist(pl_page):
 
 def prune_playlist(playlist): 
 	plist = playlist['list'] 
-	unavail_list = { "[Deleted Video]", "[Private Video]" } 
 	plist2 = list() 
 
 	for p in plist : 
