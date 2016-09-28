@@ -25,6 +25,7 @@ import urllib
 import urllib3
 import certifi
 
+import multiprocessing as mp 
 
 from xml.dom import minidom
 from HTMLParser import HTMLParser
@@ -41,6 +42,8 @@ line_log_path  = "./ytdragon.log"
 enable_item_log  = True 
 itemlog_path = "./logs"
 deep_debug = False
+
+max_threads = 40
 
 youtube = "https://www.youtube.com"
 unavail_list = { "[Deleted Video]", "[Private Video]" } 
@@ -179,7 +182,8 @@ def print_playlist(playlist):
 	print_playlist_stats(playlist)
 	print "#--------------------------------------------------------"
 	for l in plist: 
-		print l['vid']+"\t"+l['max_res']+"\t"+l['title'] 
+		#print l['vid']+"\t"+l['max_res']+"\t"+l['title'] 
+		print l['vid']+"\t"+l['title'] 
 
 	return 
 
@@ -199,10 +203,13 @@ def save_playlist(playlist,filename):
 	fp.write("# Item count: Total="+str(playlist['total'])+" Available ="+str(len(plist))+" Deleted="+str(del_items)+"\n")
 	fp.write("#-------------------------------------------------------\n")
 	for l in plist: 
-		fp.write(l['vid']+"\t"+l['duration'].rjust(10)+"\t"+l['max_res'].rjust(10)+"\t"+l['title']+"\n")
+		fp.write(l['vid']+"\t"+l['duration'].rjust(10)+"\t"+l['title']+"\n")
+		#fp.write(l['vid']+"\t"+l['duration'].rjust(10)+"\t"+l['max_res'].rjust(10)+"\t"+l['title']+"\n")
 	
 	fp.close() 
 	return 
+
+#-------------------------------------------------------------------------------
 
 def convert_secs_to_time(seconds) :
 	m, s = divmod(int(seconds), 60)
@@ -218,38 +225,76 @@ def status_update(i, total, vid, title,lslen) :
 	sys.stdout.flush()
 	return len(status_str) 
 
+#-------------------------------------------------------------------------------
 def load_meta_info(plist) :
 	
 	total = len(plist) 
 	lslen = 1 
 	i = 0 
 	for v in plist: 
-		v['max_res']  = ""	# This is default if any of the exceptions skip filling them.
-		v['filesize'] = 0 
 		i += 1 
 		lslen = status_update(i, total,v['vid'],v['title'],lslen) 
-
-		if(v['title'] in unavail_list): 
-			continue	
-		try : 
-			vmeta = load_video_meta(v['vid']) 
-		except ytd_exception_meta as e:  
-			continue 
-
-		v['max_res'] = vmeta['max_res'] 
-		v['duration'] = convert_secs_to_time(vmeta['length_seconds']) 
-		v['author']  = vmeta['author'] 
-		v['filesize'] = vmeta['filesize'] 
+		v = load_meta(v) 
 		
-		flags = "V" if vmeta['type'] == "video" else "A"
-		flags = flags + "-CC" if vmeta['has_caption'] else "" 
-		flags = flags + "-$" if vmeta['paid'] else "" 
-		flags = flags + "-x" if vmeta['isFamilyFriendly'] else "" 
-	
 	sys.stdout.write("\r"+" "*lslen+"\n")
 	sys.stdout.flush()
+
 	return plist 
 
+def load_meta_info_parallel(plist) : 	# second attempt 
+	
+	resultq = mp.Queue() 
+	total = len(plist) 
+	lslen = 1 
+	vmth = list() 
+	th_count = 0 
+	last_join = 0  
+
+	count = 0
+	newlist = list() 
+	thread_count = min(max_threads,total) 
+	pool = mp.Pool(thread_count) 
+	while (count < total): 
+		sys.stdout.write("\rProcessing:"+str(count+1)+"-"+str(min(total,count+thread_count))) 
+		outq = pool.map(load_meta,plist[count:count+thread_count]) 
+		newlist.extend(outq) 
+		count += thread_count 
+
+	return newlist
+
+def load_meta(v) :
+	v['max_res']  = ""	# This is default if any of the exceptions skip filling them.
+	v['filesize'] = 0 
+	v['title']    = "" if not v.has_key('title') else v['title'] 
+	
+	if(v['title'] in unavail_list): 
+		return v 
+	try : 
+		vmeta = load_video_meta(v['vid']) 
+	except ytd_exception_meta as e:  
+		v['max_res'] = e.vidmeta['max_res'] if e.vidmeta.has_key('max_res') else "" 
+		v['duration'] = convert_secs_to_time(e.vidmeta['length_seconds']) if e.vidmeta.has_key('length_seconds') else "0:0" 
+		v['author']  = e.vidmeta['author'] if e.vidmeta.has_key('author') else "" 
+		v['filesize'] = 0 
+		v['flags'] = "" 
+		return v
+	except ValueError: 	## need to debug.. jsonload gets many a times. 
+		return v 
+
+	v['max_res'] = vmeta['max_res'] 
+	v['duration'] = convert_secs_to_time(vmeta['length_seconds']) 
+	v['author']  = vmeta['author'] 
+	v['filesize'] = vmeta['filesize'] 
+	
+	flags = "V" if vmeta['type'] == "video" else "A"
+	flags = flags + "-CC" if vmeta['has_caption'] else "" 
+	flags = flags + "-$" if vmeta['paid'] else "" 
+	flags = flags + "-x" if vmeta['isFamilyFriendly'] else "" 
+
+	v['flags'] = flags
+	return v 
+	
+#-------------------------------------------------------------------------------
 def extract_playlist(pl_page): 
 
 	tree = pl_page['tree']
@@ -269,10 +314,11 @@ def extract_playlist(pl_page):
 		lmurl = parse_lmwidget(ajax_resp['lm_widget']) 
 		count += 1
 	
-	#print "Got Play list [{}]: {} having {} items".format(playlist['plid'],playlist['title'],len(plist)) 
 	print_playlist_header(playlist) 
 
-	plist = load_meta_info(plist) 
+	#plist = load_meta_info(plist) 
+	plist = load_meta_info_parallel(plist) 
+
 	playlist['list'] = plist
 	playlist['total'] = len(plist) 
 	return playlist 
