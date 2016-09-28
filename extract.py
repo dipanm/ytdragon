@@ -146,7 +146,7 @@ def parse_playlist(list_content):
 		title    = clean_up_title(list_content.xpath(tstr+"["+str(count)+"]/@data-title")[0]) 
 		t     = list_content.xpath(tstr+"["+str(count)+"]/td[@class='pl-video-time']/div/div[@class='timestamp']/span/text()")
 		time = t[0]  if (t) else "00:00" 
-		plitem = ({'vid':vid,'title':title,'duration':time }) 
+		plitem = ({'vid':vid,'title':title,'duration':str(time) }) 
 		plist.append(plitem) 
 		count += 1; 
 
@@ -182,8 +182,7 @@ def print_playlist(playlist):
 	print_playlist_stats(playlist)
 	print "#--------------------------------------------------------"
 	for l in plist: 
-		#print l['vid']+"\t"+l['max_res']+"\t"+l['title'] 
-		print l['vid']+"\t"+l['title'] 
+		print l['vid']+"\t"+l['max_res']+"\t"+l['title'] 
 
 	return 
 
@@ -203,8 +202,7 @@ def save_playlist(playlist,filename):
 	fp.write("# Item count: Total="+str(playlist['total'])+" Available ="+str(len(plist))+" Deleted="+str(del_items)+"\n")
 	fp.write("#-------------------------------------------------------\n")
 	for l in plist: 
-		fp.write(l['vid']+"\t"+l['duration'].rjust(10)+"\t"+l['title']+"\n")
-		#fp.write(l['vid']+"\t"+l['duration'].rjust(10)+"\t"+l['max_res'].rjust(10)+"\t"+l['title']+"\n")
+		fp.write(l['vid']+"\t"+l['duration'].rjust(10)+"\t"+l['max_res'].rjust(10)+"\t"+l['flags']+"\t"+l['author'].ljust(35)+"\t"+l['title']+"\n")
 	
 	fp.close() 
 	return 
@@ -280,12 +278,12 @@ def load_meta(v) :
 	except ValueError: 	## need to debug.. jsonload gets many a times. 
 		return v 
 
-	v['max_res'] = vmeta['max_res'] 
+	v['max_res'] = str(vmeta['max_res']) 
 	v['author']  = vmeta['author'] 
 	
 	flags = "V" if vmeta['type'] == "video" else "A"
-	flags = flags + "-$" if vmeta['paid'] else "" 
-	flags = flags + "-x" if vmeta['isFamilyFriendly'] else "" 
+	flags = flags + "-$" if (vmeta['paid'] == True) else flags  
+	flags = flags + "-x" if (vmeta['isFamilyFriendly'] == True) else flags 
 
 	v['flags'] = flags
 	return v 
