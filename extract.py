@@ -270,7 +270,7 @@ def load_meta(v) :
 	if(v['title'] in unavail_list): 
 		return v 
 	try : 
-		vmeta = load_video_meta(v['vid']) 
+		vmeta = load_video_meta(v['vid'],True) 
 	except ytd_exception_meta as e:  
 		v['max_res'] = e.vidmeta['max_res'] if e.vidmeta.has_key('max_res') else "" 
 		v['duration'] = convert_secs_to_time(e.vidmeta['length_seconds']) if e.vidmeta.has_key('length_seconds') else "0:0" 

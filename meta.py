@@ -293,7 +293,7 @@ def get_vid_from_url(string):
 
 	return status, vid 
 
-def load_video_meta(vid):
+def load_video_meta(vid,express=False):
 	#logr = logging.getLogger(vid) 
 
 	vid_meta = dict() 
@@ -304,6 +304,9 @@ def load_video_meta(vid):
 	vid_meta =  parse_watch_page (wpage)
 	if(vid_meta['player_args'] == None):
 		raise ytd_exception_meta("BAD_PAGE",wpage,vid_meta,"") 
+
+	if express: 
+		return vid_meta
 
 	vid_meta['stream_map'] =  parse_stream_map(vid_meta)	
 	if not (vid_meta['stream_map']):
