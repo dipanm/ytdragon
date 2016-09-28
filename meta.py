@@ -70,6 +70,11 @@ def extract_player_args(script):
 
 	return player_script[p1:p2] 
 
+def fast_extract_fmt_list(script_str) :
+	p1 = script_str.find("\"fmt_list\":") 
+	val= script_str[p1:].split(":")[1].split(",")[0]
+	max_res	= val.split('\/')[1] if (len(val) >0 )  else 0 
+	return max_res 
 
 #------ Page fetch and parsing - called by load_vid_meta -----------------------
 
@@ -140,7 +145,38 @@ def parse_watch_page(wpage):
 		vid_meta['max_res'] 	= 0
 		vid_meta['has_caption'] = False 
 	
+	write_to_file(vid_meta['vid']+".html",player_script) 
 	return vid_meta 
+
+def parse_watch_page_express(wpage):
+
+	page = wpage['contents'] 
+	prop_keys = { 'og:title' : 'title' , 'og:type' : 'type' }
+	iprop_keys = { 'videoId' : 'vid' , 'genre': 'genre', 'isFamilyFriendly': 'isFamilyFriendly','paid': 'paid' }
+
+	vid_meta = dict() 
+	# extract dom tree of HTML Page
+	tree = html.fromstring(page) 
+
+	# extract player script 
+	script = tree.xpath('//script[contains(.,"ytplayer")]/text()') 
+	vid_meta['max_res'] = fast_extract_fmt_list(script[0])	if (len(script) > 0) else 0 
+
+	# populate the attributes
+	vid_meta['author'] 		= " ".join(map(str.strip, tree.xpath("//div[@class='yt-user-info']//text()"))).strip()
+	
+	for k in prop_keys: 
+		v = tree.xpath("//meta[@property='"+k+"']/@content") 
+		vid_meta[prop_keys[k]] = v[0] if (len(v)> 0) else '' 
+
+	for k in iprop_keys: 
+		v = tree.xpath("//meta[@itemprop='"+k+"']/@content")
+		vid_meta[iprop_keys[k]] = v[0] if (len(v)> 0) else '' 
+
+	vid_meta['player_args'] = False 
+	
+	return vid_meta 
+
 
 def parse_stream_map(args):
 
@@ -301,16 +337,19 @@ def load_video_meta(vid,express=False):
 	if( (wpage['code'] != 200) or (wpage['len'] ==0) )  :	#only HTML code for success is 200 OK
 		raise ytd_exception_meta("PAGE_FETCH_ERR",wpage,vid_meta,"HTTP Error Code-{}".format(wpage['code']) ) 
 
-	vid_meta =  parse_watch_page (wpage)
-	if(vid_meta['player_args'] == None):
-		raise ytd_exception_meta("BAD_PAGE",wpage,vid_meta,"") 
-
 	if express: 
+		vid_meta =  parse_watch_page_express (wpage)
 		return vid_meta
 
-	vid_meta['stream_map'] =  parse_stream_map(vid_meta)	
-	if not (vid_meta['stream_map']):
-		raise ytd_exception_meta("NO_STREAMS",wpage,vid_meta,"") 
+	else : 
+		vid_meta =  parse_watch_page (wpage)
+		if(vid_meta['player_args'] == None):
+			raise ytd_exception_meta("BAD_PAGE",wpage,vid_meta,"") 
+        
+		vid_meta['stream_map'] =  parse_stream_map(vid_meta)	
+		if not (vid_meta['stream_map']):
+			raise ytd_exception_meta("NO_STREAMS",wpage,vid_meta,"") 
+        
+		return vid_meta 
 
-	return vid_meta 
 

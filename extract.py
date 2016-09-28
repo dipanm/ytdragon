@@ -273,7 +273,6 @@ def load_meta(v) :
 		vmeta = load_video_meta(v['vid'],True) 
 	except ytd_exception_meta as e:  
 		v['max_res'] = e.vidmeta['max_res'] if e.vidmeta.has_key('max_res') else "" 
-		v['duration'] = convert_secs_to_time(e.vidmeta['length_seconds']) if e.vidmeta.has_key('length_seconds') else "0:0" 
 		v['author']  = e.vidmeta['author'] if e.vidmeta.has_key('author') else "" 
 		v['filesize'] = 0 
 		v['flags'] = "" 
@@ -282,12 +281,9 @@ def load_meta(v) :
 		return v 
 
 	v['max_res'] = vmeta['max_res'] 
-	v['duration'] = convert_secs_to_time(vmeta['length_seconds']) 
 	v['author']  = vmeta['author'] 
-	v['filesize'] = vmeta['filesize'] 
 	
 	flags = "V" if vmeta['type'] == "video" else "A"
-	flags = flags + "-CC" if vmeta['has_caption'] else "" 
 	flags = flags + "-$" if vmeta['paid'] else "" 
 	flags = flags + "-x" if vmeta['isFamilyFriendly'] else "" 
 
