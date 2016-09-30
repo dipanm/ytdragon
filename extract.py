@@ -137,16 +137,18 @@ def load_more_ajax(url):
 
 	return { 'error' : 0, 'list_content': list_content, 'lm_widget': lm_widget} 
 
-def parse_playlist(list_content):
+def parse_playlist(list_content,last=0):
 	plist = list() 
 	count = 1
 	tstr = '//table[@id="pl-video-table"]/tbody/tr'
+	i = last
 	for l in list_content.xpath(tstr):
 		vid     = list_content.xpath(tstr+"["+str(count)+"]/@data-video-id")[0] 
 		title    = clean_up_title(list_content.xpath(tstr+"["+str(count)+"]/@data-title")[0]) 
 		t     = list_content.xpath(tstr+"["+str(count)+"]/td[@class='pl-video-time']/div/div[@class='timestamp']/span/text()")
 		time = t[0]  if (t) else "00:00" 
-		plitem = ({'vid':vid,'title':title,'duration':str(time) }) 
+		i = i+1 
+		plitem = ({'index': i, 'vid':vid,'title':title,'duration':str(time) }) 
 		plist.append(plitem) 
 		count += 1; 
 
@@ -167,9 +169,10 @@ def parse_lmwidget(lmore):
 # Top level functions for Main 
 
 def print_playlist_header(playlist): 
-	print "# Playlist: "+playlist['plid']
-	print "# Title: "+playlist['title']
-	print "# Owner: "+playlist['owner']
+	print "# Playlist: " +playlist['plid']
+	print "# Title: "    +playlist['title']
+	print "# Owner: "    +playlist['owner']
+	print "# Total: "    +str(playlist['total']) 
 
 def print_playlist_stats(playlist): 
 	plist = playlist['list'] 
@@ -216,48 +219,45 @@ def convert_secs_to_time(seconds) :
 	
 	return time 
 
-def status_update(i, total, vid, title,lslen) :
-	status_str = "\rProcessing: %d of %d :[%s]:%s" % (i, total,vid, title)
-	sys.stdout.write("\r"+" "*lslen) 
-	sys.stdout.write(status_str) 
+def status_update(i, vid="", title="") :
+	lslen = 110 
+	sys.stdout.write("\r"+" "*lslen)
+		
+	if(i > 0) : 
+		tstr = title[:72] + "..." if (len(title) > 75) else title 
+		status_str = "\rProcessing: %3d :[%s]:%s" % (i, vid, tstr)
+		sys.stdout.write(status_str) 
+	else:
+		sys.stdout.write("\r")
+
 	sys.stdout.flush()
-	return len(status_str) 
+	return 
 
 #-------------------------------------------------------------------------------
 def load_meta_info(plist) :
 	
 	total = len(plist) 
-	lslen = 1 
 	i = 0 
 	for v in plist: 
 		i += 1 
-		lslen = status_update(i, total,v['vid'],v['title'],lslen) 
 		v = load_meta(v) 
-		
-	sys.stdout.write("\r"+" "*lslen+"\n")
-	sys.stdout.flush()
-
+	
+	status_update(-1) 	
 	return plist 
 
 def load_meta_info_parallel(plist) : 	# second attempt 
 	
-	resultq = mp.Queue() 
 	total = len(plist) 
-	lslen = 1 
-	vmth = list() 
-	th_count = 0 
-	last_join = 0  
-
-	count = 0
 	newlist = list() 
 	thread_count = min(max_threads,total) 
 	pool = mp.Pool(thread_count) 
+	count = 0
 	while (count < total): 
-		sys.stdout.write("\rProcessing:"+str(count+1)+"-"+str(min(total,count+thread_count))) 
 		outq = pool.map(load_meta,plist[count:count+thread_count]) 
 		newlist.extend(outq) 
 		count += thread_count 
 
+	status_update(-1) 	
 	return newlist
 
 def load_meta(v) :
@@ -286,6 +286,8 @@ def load_meta(v) :
 	flags = flags + "-x" if (vmeta['isFamilyFriendly'] == True) else flags 
 
 	v['flags'] = flags
+
+	status_update(v['index'],v['vid'],v['title']) 
 	return v 
 	
 #-------------------------------------------------------------------------------
@@ -303,18 +305,18 @@ def extract_playlist(pl_page):
 		if(ajax_resp['error'] <0 ): 
 			print "Error extracting load more... returning the list" 
 			break
-		pl = parse_playlist(ajax_resp['list_content'])
+		pl = parse_playlist(ajax_resp['list_content'],len(plist))
 		plist.extend(pl)
 		lmurl = parse_lmwidget(ajax_resp['lm_widget']) 
 		count += 1
 	
-	print_playlist_header(playlist) 
-
-	#plist = load_meta_info(plist) 
-	plist = load_meta_info_parallel(plist) 
-
 	playlist['list'] = plist
 	playlist['total'] = len(plist) 
+	print_playlist_header(playlist) 
+
+	#playlist['list'] = load_meta_info(plist) 
+	playlist['list'] = load_meta_info_parallel(plist) 
+
 	return playlist 
 
 def prune_playlist(playlist): 
