@@ -178,7 +178,7 @@ def print_playlist_header(playlist):
 def print_playlist_stats(playlist): 
 	plist = playlist['list'] 
 	del_items = playlist['total']-len(plist)
-	print "# Item count: Total="+str(playlist['total'])+" Available ="+str(len(plist))+" Deleted="+str(playlist['unavail'])+" Duplicate="+str(playlist['duplicate'])+"\n"
+	print "# Item count: Total="+str(playlist['total'])+" Available ="+str(len(plist))+" Deleted="+str(playlist['unavail'])+" Duplicate="+str(playlist['duplicate'])
 
 def print_playlist(playlist): 
 	plist = playlist['list'] 
@@ -311,7 +311,7 @@ def extract_playlist(pl_page):
 		count += 1
 	
 	playlist['list'] = plist
-	playlist['total'] = len(playlist['list']) 
+	prune_playlist(playlist)
 	print_playlist_header(playlist) 
 
 	if(load_sequential) : 
@@ -387,8 +387,6 @@ plid, outfile = parse_arguments(sys.argv[1:])
 pl_page = get_list_page(plid) 
 
 plist = extract_playlist(pl_page) 
-
-prune_playlist(plist)
 
 save_playlist(plist,outfile) 
 print_playlist_stats(plist) 
