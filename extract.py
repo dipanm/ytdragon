@@ -178,7 +178,7 @@ def print_playlist_header(playlist):
 def print_playlist_stats(playlist): 
 	plist = playlist['list'] 
 	del_items = playlist['total']-len(plist)
-	print "# Item count: Total="+str(playlist['total'])+" Available ="+str(len(plist))+" Unavailable="+str(del_items)
+	print "# Item count: Total="+str(playlist['total'])+" Available ="+str(len(plist))+" Deleted="+str(playlist['unavail'])+" Duplicate="+str(playlist['duplicate'])+"\n"
 
 def print_playlist(playlist): 
 	plist = playlist['list'] 
@@ -202,8 +202,7 @@ def save_playlist(playlist,filename):
 	fp.write("# Title: "+playlist['title']+"\n") 
 	fp.write("# Owner: "+playlist['owner']+"\n") 
 	fp.write("# URL: "+youtube+"/playlist?=list="+playlist['plid']+"\n") 
-	del_items = playlist['total']-len(plist)
-	fp.write("# Item count: Total="+str(playlist['total'])+" Available ="+str(len(plist))+" Deleted="+str(del_items)+"\n")
+	fp.write("# Item count: Total="+str(playlist['total'])+" Available ="+str(len(plist))+" Deleted="+str(playlist['unavail'])+" Duplicate="+str(playlist['duplicate'])+"\n")
 	fp.write("#-------------------------------------------------------\n")
 	for l in plist: 
 		fp.write(l['vid']+"\t"+l['duration'].rjust(10)+"\t"+l['max_res'].rjust(10)+"\t"+l['flags']+"\t"+l['author'].ljust(35)+"\t"+l['title']+"\n")
@@ -325,7 +324,9 @@ def extract_playlist(pl_page):
 def prune_playlist(playlist): 
 	playlist['total'] = len(playlist['list']) 
 	playlist['unavail'] = 0 
-
+	playlist['duplicate'] = 0 
+	
+	seen = set() 
 	i = 0 
 	n = len(playlist['list']) 
 	while i < n : 
@@ -333,7 +334,12 @@ def prune_playlist(playlist):
 			del playlist['list'][i] 
 			playlist['unavail'] += 1
 			n = n - 1
+		elif(playlist['list'][i]['vid'] in seen): 
+			del playlist['list'][i] 
+			playlist['duplicate'] += 1
+			n = n - 1 
 		else :
+			seen.add(playlist['list'][i]['vid']) 
 			i += 1  
 			
 	return 
