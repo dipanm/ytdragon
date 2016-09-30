@@ -44,6 +44,7 @@ itemlog_path = "./logs"
 deep_debug = False
 
 max_threads = 40
+load_sequential = False 
 
 youtube = "https://www.youtube.com"
 unavail_list = { "[Deleted Video]", "[Private Video]" } 
@@ -311,24 +312,31 @@ def extract_playlist(pl_page):
 		count += 1
 	
 	playlist['list'] = plist
-	playlist['total'] = len(plist) 
+	playlist['total'] = len(playlist['list']) 
 	print_playlist_header(playlist) 
 
-	#playlist['list'] = load_meta_info(plist) 
-	playlist['list'] = load_meta_info_parallel(plist) 
+	if(load_sequential) : 
+		playlist['list'] = load_meta_info(plist) 
+	else : 
+		playlist['list'] = load_meta_info_parallel(plist) 
 
 	return playlist 
 
 def prune_playlist(playlist): 
-	plist = playlist['list'] 
-	plist2 = list() 
+	playlist['total'] = len(playlist['list']) 
+	playlist['unavail'] = 0 
 
-	for p in plist : 
-		if(p['title'] not in unavail_list): 
-			plist2.append(p) 
+	i = 0 
+	n = len(playlist['list']) 
+	while i < n : 
+		if(playlist['list'][i]['title'] in unavail_list): 
+			del playlist['list'][i] 
+			playlist['unavail'] += 1
+			n = n - 1
+		else :
+			i += 1  
 			
-	playlist['list'] = plist2 
-	return playlist 
+	return 
  
 #---------------------------------------------------------------
 # Support functions for Main 
@@ -374,7 +382,7 @@ pl_page = get_list_page(plid)
 
 plist = extract_playlist(pl_page) 
 
-plist = prune_playlist(plist)
+prune_playlist(plist)
 
 save_playlist(plist,outfile) 
 print_playlist_stats(plist) 
