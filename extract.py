@@ -33,7 +33,7 @@ from HTMLParser import HTMLParser
 from ytutils import clean_up_title 
 from ytmeta    import load_video_meta
 from ytmeta    import ytd_exception_meta
-from ytpage  import get_list_page
+from ytpage  import get_page
 from ytpage  import get_plid_from_url
 
 ### User Config Variable ----------------------------
@@ -250,10 +250,15 @@ def load_meta(v) :
 	return v 
 	
 #-------------------------------------------------------------------------------
-def extract_playlist(pl_page): 
+def extract_playlist(plid,pl_page): 
 
-	tree = pl_page['tree']
-	playlist = { 'plid': pl_page['plid'], 'title': pl_page['title'], 'owner': pl_page['owner'] } 
+	tree = html.fromstring(pl_page['contents'])
+
+	t = tree.xpath('//h1[@class="pl-header-title"]/text()')
+	title = clean_up_title(t[0]) if (len(t) > 0) else "unknown title" 
+	owner = tree.xpath('//h1[@class="branded-page-header-title"]/span/span/span/a/text()')[0]
+	playlist = { 'plid': plid, 'title': title, 'owner': owner } 
+
 	plist = parse_playlist(tree) 
 	lmurl = parse_lmwidget(tree) 
 	
@@ -345,9 +350,9 @@ plref, outfile = parse_arguments(sys.argv[1:])
 
 plid = get_plid_from_url(plref) 
 
-pl_page = get_list_page(plid) 
+pl_page = get_page("list",plid) 
 
-plist = extract_playlist(pl_page) 
+plist = extract_playlist(plid,pl_page) 
 
 save_playlist(plist,outfile) 
 print_playlist_stats(plist) 
