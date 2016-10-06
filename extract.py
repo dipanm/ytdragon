@@ -33,6 +33,7 @@ from HTMLParser import HTMLParser
 from ytutils import clean_up_title 
 from meta    import load_video_meta
 from meta    import ytd_exception_meta
+from ytpage  import get_list_page
 
 ### User Config Variable ----------------------------
 
@@ -72,49 +73,6 @@ def setup_main_logger():
 	return logm
 	
 #### ------------------------------------------------
-
-def get_list_page(plid):
-	logr = logging.getLogger() 
-
-	url = "https://www.youtube.com/playlist?list="+plid
-	logr.debug("Getting the page: %s",url) 
-
-	response = urllib.urlopen(url)
-	code = response.getcode() 
-	if(code != 200):
-		logr.error("wrong plid %s\n",plid) 
-		return { 'error' : -1, 'plid' : plid } 
-	page = response.read()
-
-	if(deep_debug): 
-		fp = open(plid+".html","w") 
-		if(fp): 
-			fp.write(page) 
-			fp.close() 
-
-	tree = html.fromstring(page) 
-	t = tree.xpath('//h1[@class="pl-header-title"]/text()')
-	title = clean_up_title(t[0]) 
-
-	owner = tree.xpath('//h1[@class="branded-page-header-title"]/span/span/span/a/text()')[0]
-	logr.debug("PLID:[%s] Title:'%s' %d bytes",plid,title,len(page))
-
-	return { 'title': title, 'plid': plid, 'tree': tree, 'owner': owner, 'error': 0 }  
-
-def get_plid_from_url(string):
-	if(string[0] == '?'):
-		return '?' 
-	if re.match('^(http|https)://', string):
-		url = string
-		para = url.split('?')[1].split(",")
-		for p in para:
-			key, value = p.split("=")
-			if(key == 'list'):
-				plid = value 
-	else:
-		plid = string 
-
-	return plid 
 
 def load_more_ajax(url):
 	logr = logging.getLogger() 
@@ -350,7 +308,7 @@ def prune_playlist(playlist):
 def parse_arguments(argv): 
 	logm = logging.getLogger() 
 	usage_str = "Usage: %s -p|--playlist=\"playlist_id/playlist_url\" -o|--outfile=\"outfilename\""
-	plid = ""
+	plref = ""
 	outfile = ""
 
 	try:
@@ -366,30 +324,29 @@ def parse_arguments(argv):
 
 	for opt, arg in opts:
 		if opt in ("-p", "--playlist"):
-			plid = get_plid_from_url(arg)
+			plref = arg
 		if opt in ("-o", "--outfile"): 
 			outfile = arg
 
-	if ( plid  == "" ): 
+	if ( plref  == "" ): 
 		logm.critical("Missing playlist. Either supply item (id/url)  OR file with url_list") 
 		logm.critical(usage_str,sys.argv[0])
 		sys.exit(2)
 
-	return plid, outfile
+	return plref, outfile
 
 #---------------------------------------------------------------
 # Main function
 
 logm = setup_main_logger() 
 
-plid, outfile = parse_arguments(sys.argv[1:]) 
+plref, outfile = parse_arguments(sys.argv[1:]) 
 
-pl_page = get_list_page(plid) 
+pl_page = get_list_page(plref) 
 
 plist = extract_playlist(pl_page) 
 
 save_playlist(plist,outfile) 
 print_playlist_stats(plist) 
 
-#logm.info("Good bye... Get those videos!") 
 
