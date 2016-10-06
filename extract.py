@@ -205,7 +205,7 @@ def save_playlist(playlist,filename):
 	fp.write("# Item count: Total="+str(playlist['total'])+" Available ="+str(len(plist))+" Deleted="+str(playlist['unavail'])+" Duplicate="+str(playlist['duplicate'])+"\n")
 	fp.write("#-------------------------------------------------------\n")
 	for l in plist: 
-		fp.write(l['vid']+"\t"+l['duration'].rjust(10)+"\t"+l['max_res'].rjust(10)+"\t"+l['flags']+"\t"+l['author'].ljust(35)+"\t"+l['title']+"\n")
+		fp.write(l['vid']+"  "+l['duration'].rjust(8)+"\t"+l['max_res'].rjust(10)+"   "+l['flags'].rjust(3)+"  "+l['author'].ljust(35)+"\t"+l['title']+"\n")
 	
 	fp.close() 
 	return 
