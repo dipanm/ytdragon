@@ -71,47 +71,6 @@ def get_plid_from_url(string):
 
 	return plid 
 
-def get_list_page(plid):
-	logr = logging.getLogger() 
-
-	url = "https://www.youtube.com/playlist?list="+plid
-	logr.debug("Getting the page: %s",url) 
-
-	response = urllib.urlopen(url)
-	code = response.getcode() 
-	if(code != 200):
-		logr.error("wrong plid %s\n",plid) 
-		return { 'error' : -1, 'plid' : plid } 
-	page = response.read()
-
-	if(deep_debug): 
-		fp = open(plid+".html","w") 
-		if(fp): 
-			fp.write(page) 
-			fp.close() 
-
-	tree = html.fromstring(page) 
-	t = tree.xpath('//h1[@class="pl-header-title"]/text()')
-	title = clean_up_title(t[0]) 
-
-	owner = tree.xpath('//h1[@class="branded-page-header-title"]/span/span/span/a/text()')[0]
-	logr.debug("PLID:[%s] Title:'%s' %d bytes",plid,title,len(page))
-
-	return { 'title': title, 'plid': plid, 'tree': tree, 'owner': owner, 'error': 0 }  
-
-def get_watch_page(vid):
-
-	page = { 'code' : -1, 'contents' : ""} 
-	url = "https://www.youtube.com/watch?v="+vid
-
-	response = urllib.urlopen(url)
-	page['url'] = url
-	page['code'] = response.getcode() 
-	page['contents'] = response.read()
-	page['len']  = len(page['contents']) 
-
-	return page 
-
 def get_page(pagetype,uid):
 
 	page = { 'code' : -1, 'contents' : ""} 
