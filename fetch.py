@@ -24,7 +24,7 @@ from ytutils import print_pretty
 from meta import smap_to_str
 from meta import load_video_meta
 from meta import ytd_exception_meta
-from meta import get_vid_from_url 
+from ytpage import get_vid_from_url 
 
 ### User Config Variable ----------------------------
 

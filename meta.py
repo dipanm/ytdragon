@@ -11,6 +11,7 @@ import urlparse
 from ytutils import clean_up_title 
 from ytutils import write_to_file
 from ytutils import print_pretty
+from ytpage import get_watch_page
 
 ### User Config Variable ----------------------------
 
@@ -77,19 +78,6 @@ def fast_extract_fmt_list(script_str) :
 	return max_res 
 
 #------ Page fetch and parsing - called by load_vid_meta -----------------------
-
-def get_watch_page(vid):
-
-	page = { 'code' : -1, 'contents' : ""} 
-	url = "https://www.youtube.com/watch?v="+vid
-
-	response = urllib.urlopen(url)
-	page['url'] = url
-	page['code'] = response.getcode() 
-	page['contents'] = response.read()
-	page['len']  = len(page['contents']) 
-
-	return page 
 
 def parse_watch_page(wpage):
 
@@ -291,43 +279,6 @@ def parse_stream_map(args):
 #---- The primary API function: -----------------------------------------------
 #	load_video_meta() 
 #	get_vid_from_url() 
-
-# following errors to check 
-#  - if the first char belongs to special chars 
-#  - if not a "youtube.com" page
-#  - if host is youtube page but not a watch page 
-#  - if id not alphanumeric both direct or url format 
-def get_vid_from_url(string):
-	# should this business be kept in the list parsing function? 
-	none_chars = { '#', '=' }  # Chars used as: '#' as comment, '=' as command
-	skip_chars = { '@', '?' }  # Chars used as: '@' as DONE, '?' as ERROR 
-	vid = "INVALID" 
-	status = "INVALID"
-	
-	if( (string == "") or (string[0] in none_chars) ) : 
-		return "NONE", "" 
-
-	if(string[0] in skip_chars ):
-		return "SKIP", string[1:] 
-
-	if re.match('^(http|https)://', string):
-		parsed_url = urlparse.urlparse(string)
-		h = parsed_url.netloc
-		path = parsed_url.path 
-		vid = urlparse.parse_qs(parsed_url.query)['v'][0]
-
-		if default_host not in h: 
-			status = "BAD_HOST" 
-		if not (path == "/watch"):
-			status = "INCORRECT_PAGE" 
-
-		if (status == "INVALID") and (vid != "") and (vid != "INVALID") : 
-			status = "OK" 
-	else:
-		vid = string
-		status = "OK" if vid.isalnum() else "BAD_VID" 
-
-	return status, vid 
 
 def load_video_meta(vid,express=False):
 	#logr = logging.getLogger(vid) 
