@@ -31,9 +31,10 @@ from xml.dom import minidom
 from HTMLParser import HTMLParser
 
 from ytutils import clean_up_title 
-from meta    import load_video_meta
-from meta    import ytd_exception_meta
+from ytmeta    import load_video_meta
+from ytmeta    import ytd_exception_meta
 from ytpage  import get_list_page
+from ytpage  import get_plid_from_url
 
 ### User Config Variable ----------------------------
 
@@ -342,7 +343,9 @@ logm = setup_main_logger()
 
 plref, outfile = parse_arguments(sys.argv[1:]) 
 
-pl_page = get_list_page(plref) 
+plid = get_plid_from_url(plref) 
+
+pl_page = get_list_page(plid) 
 
 plist = extract_playlist(pl_page) 
 

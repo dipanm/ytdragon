@@ -13,6 +13,10 @@ deep_debug = False
 default_host = "youtube.com" 
 default_hurl = "https://"+default_host 
 
+url_map = { 	"video": "/watch?v=<ID>", 
+		"list" : "/playlist?list=<ID>", 
+		"user" : "/user/<ID>/videos"	} 
+
 # following errors to check 
 #  - if the first char belongs to special chars 
 #  - if not a "youtube.com" page
@@ -67,10 +71,8 @@ def get_plid_from_url(string):
 
 	return plid 
 
-def get_list_page(plref):
+def get_list_page(plid):
 	logr = logging.getLogger() 
-
-	plid = get_plid_from_url(plref) 
 
 	url = "https://www.youtube.com/playlist?list="+plid
 	logr.debug("Getting the page: %s",url) 
@@ -110,4 +112,17 @@ def get_watch_page(vid):
 
 	return page 
 
+def get_page(pagetype,uid):
+
+	page = { 'code' : -1, 'contents' : ""} 
+
+	url = default_hurl+url_map[pagetype].replace("<ID>",uid) 
+
+	response = urllib.urlopen(url)
+	page['url'] = url
+	page['code'] = response.getcode() 
+	page['contents'] = response.read()
+	page['len']  = len(page['contents']) 
+
+	return page 
 

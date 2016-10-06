@@ -11,7 +11,7 @@ import urlparse
 from ytutils import clean_up_title 
 from ytutils import write_to_file
 from ytutils import print_pretty
-from ytpage import get_watch_page
+from ytpage import get_page
 
 ### User Config Variable ----------------------------
 
@@ -284,7 +284,7 @@ def load_video_meta(vid,express=False):
 	#logr = logging.getLogger(vid) 
 
 	vid_meta = dict() 
-	wpage = get_watch_page(vid) 	# wpage = watch_page
+	wpage = get_page("video",vid) 	# wpage = watch_page
 	if( (wpage['code'] != 200) or (wpage['len'] ==0) )  :	#only HTML code for success is 200 OK
 		raise ytd_exception_meta("PAGE_FETCH_ERR",wpage,vid_meta,"HTTP Error Code-{}".format(wpage['code']) ) 
 
