@@ -21,9 +21,9 @@ from ytutils import clean_up_title
 from ytutils import write_to_file
 from ytutils import print_pretty
 
-from meta import smap_to_str
-from meta import load_video_meta
-from meta import ytd_exception_meta
+from ytmeta import smap_to_str
+from ytmeta import load_video_meta
+from ytmeta import ytd_exception_meta
 from ytpage import get_vid_from_url 
 
 ### User Config Variable ----------------------------
