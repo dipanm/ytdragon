@@ -26,6 +26,7 @@ from ytmeta import load_video_meta
 from ytmeta import ytd_exception_meta
 from ytpage import get_vid_from_url 
 from ytpage import get_uid_from_ref 
+from ytpage import skip_codes  
 
 ### User Config Variable ----------------------------
 
@@ -324,47 +325,34 @@ def read_list(listfile):
 def parse_arguments(argv): 
 	logm = logging.getLogger() 
 	usage_str = "Usage: %s -f|--folder='destination' <download_reference> "
-	usage_str_2 = "-v|--vid 'videoid' -w|--web 'url' -p|--playlist -l|--ytlist 'url_list' -u|--user 'userid' -c|--channel 'channelid' "
-	uid_ref = ''
-	#uid_opt = ''
-	folder = ''
-	#list_mode = 0 	
-	#uid_key_list = { "-v", "-c", "-u", "-p", "-l", "-w", "--vid", "--channel", "--user", "--playlist", "--ytlist", "--web" } 
+	folder = ""
+
+	if (len(argv) == 0) : 
+		logm.critical(usage_str,sys.argv[0])
+		sys.exit(2) 
 
 	try:
-		#opts, args = getopt.getopt(argv,"f:v:c:u:p:l:w:",["folder=","vid=","list=","channel=","user=","playlist=","ytlist=","web="])
 		opts, args = getopt.getopt(argv,"f:",["folder="])
 	except getopt.GetoptError as err:
 		logm.error("Error in Options: %s",str(err)) 
 		logm.critical(usage_str,sys.argv[0])
 		sys.exit(2)
 	
-	if(len(opts) == 0): 
-		logm.critical(usage_str,sys.argv[0])
-		sys.exit(2) 
-
 	for opt, arg in opts:
 		if opt in ("-f", "--folder"):
 			folder = arg
-		#if opt in uid_key_list : 
-		#	uid_opt = opt 
-		#	uid_ref = arg
-		#	if opt in ("-v","--vid"):
-		#		list_mode = 0 
-		#	else: 
-		#		list_mode = 1 	
-	#print args 
-	uid_ref = args[0] 
-	if ( folder == ''): 
+
+	if ( folder == ""): 
 		logm.warning("Missing destination folder. Assuming './' (current working directory) ") 
 		folder = "./" 
-	else:
-		logm.debug("Destination folder for streams: %s",folder) 
 
-	if ( uid_ref  == '' ): 
+	logm.debug("Destination folder for streams: %s",folder) 
+
+	if ( len(args) > 0) : 
+		uid_ref = args[0] 
+	else : 
 		logm.critical("Missing source. supply at least one reference to download") 
 		logm.critical(usage_str,sys.argv[0])
-		logm.critical(usage_str_2)
 		sys.exit(2)
 
 	return folder, uid_ref  
@@ -375,10 +363,8 @@ def parse_arguments(argv):
 logm = setup_main_logger() 
 
 (folder, uidref) = parse_arguments(sys.argv[1:]) 
-vid = '-'
 
-status, sp_char, id_type, vid = get_uid_from_ref(uidref)
-#print "Status {} sp_char {} id_type {} uid {}".format(status, sp_char, id_type, vid) 
+sp_char, id_type, vid = get_uid_from_ref(uidref)
 
 if(id_type == "ytlist"): 
 	url_list = read_list(vid) 
@@ -386,14 +372,16 @@ if(id_type == "ytlist"):
 	download_list(url_list,folder) 
 
 elif (id_type == "video"):
-	status, sp_char, id_type, vid = get_uid_from_ref(uidref)
-	if(status == "OK") : 
+	if(sp_char == "") : 
 		logm.info("Downloading video: [%s]",vid) 
 		download_video(vid,folder) 
 	else : 
-		logm.info("Unable to download vid %s: Status %s",vid,status) 
+		status = skip_codes[sp_char] if skip_codes.has_key(sp_char) else "ERROR" 
+		logm.info("Skipping vid %s: Status %s (%s)",vid,status,sp_char) 
 else:
-	print "Mode currently not supported."
+	print "Type currently not supported. or Error in id_reference"
+	status = skip_codes[sp_char] if skip_codes.has_key(sp_char) else "ERROR" 
+	print "Status {} sp_char {} id_type {} uid {}".format(status, sp_char, id_type, vid) 
 
 logm.info("Good bye... Enjoy the video!") 
 

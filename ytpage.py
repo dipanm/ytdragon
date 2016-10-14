@@ -14,6 +14,7 @@ deep_debug = False
 default_host = "youtube.com" 
 default_hurl = "https://"+default_host 
 
+skip_codes  = { "#": "Comment", "@" : "DONE", "?" : "BAD_ITEM", "=" : "COMMAND" } 
 uidtype_map = { "v"	: "video", 	"vid"	: "video",	"video"		: "video",
 	      	"c"	: "channel",	"ch" 	: "channel", 	"channel"	: "channel",
 	      	"u"	: "user", 	"usr"	: "user", 	"user"		: "user",
@@ -49,16 +50,13 @@ path_id_map ={ 	"watch"    : { "uid_type":"video",   "extract_id": extract_id_q,
 	   } 
 
 def get_uid_from_ref(uid_str):
-	special_chars = { '#', '=', '@', '?' } 
-
 	sp_char  = ""
 	uid_type = "UNKNOWN"
-	status   = "ERROR"  
 	uid      = "UNKNOWN_ID" 
 
-	if(uid_str[0] in special_chars) : 
-		uid_str = uid_str[1:] 
+	if(uid_str[0] in skip_codes.keys()) : 
 		sp_char = uid_str[0] 
+		uid_str = uid_str[1:] 
 			
 	if re.match('^(http|https)://', uid_str): #and (sp_char == ""):
 		parsed_url = urlparse.urlparse(uid_str)
@@ -67,26 +65,22 @@ def get_uid_from_ref(uid_str):
 		base_path = path.split("/")[1]
 
 		if default_host not in h: 
-			status = "BAD_HOST" 
-		
+			uid_type = "UNKNOWN_HOST" 
 		else: 
 			if path_id_map.has_key(base_path) : 
 				uid_type = path_id_map[base_path]["uid_type"] 
 				uid  = path_id_map[base_path]["extract_id"](parsed_url,path_id_map[base_path]["key_ref"]) 
-				status = "OK" 
 			else: 
-				status = "INCORRECT_PAGE" 	# default if you don't find actual one 
+				uid_type = "UNKNOWN_PAGE" 
 	else:
 		ul = uid_str.split("/",1) 
-		uid_type = uidtype_map[ul[0]] if uidtype_map.has_key(ul[0]) else "UNKNOWN"
+		uid_type = uidtype_map[ul[0]] if uidtype_map.has_key(ul[0]) else "UNKNOWN_TYPE"
 		if len(ul) > 1 : 
 			uid = ul[1].split("/")[0] if (uid_type != "ytlist") else ul[1]
 		else: 
 			uid = "UNKNOWN_ID" 
 
-		status = "OK" if not uid_type == "UNKNOWN" else "UNKNOWN_TYPE" 
-
-	return status, sp_char, uid_type, uid  
+	return sp_char, uid_type, uid  
 
 # following errors to check 
 #  - if the first char belongs to special chars 
