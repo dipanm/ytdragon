@@ -286,16 +286,21 @@ def download_video(vid,folder):
 
 def download_list(url_list,folder) :
 	logm = logging.getLogger() 
+
+	skip_status = list() 
+	for k,v in skip_codes.iteritems(): 
+		skip_status.append(v) 
 	
-	i = 0
+	i = 1
 	for url in url_list:
+		pprint.pprint(url) 
 		if( url['status'] == "OK"): 
 			vid = url['id']
-			logm.info("Downloading item %d %s : %s",i,url['id'],str(datetime.datetime.now()))
+			logm.info("Download item %4d [%s]: %s",i,url['id'],str(datetime.datetime.now()))
 			download_video(url['id'],folder) 
 			i += 1
-		elif ((url['status'] == "SKIP") or (url['status'] == "ERROR")) : 
-			logm.info("Download item %d [%s] : vid = %s : %s",i,url['status'],url['id'],"\t".join(url['attrs']) ) 
+		elif ((url['status'] != "COMMENT") and (url['status'] in skip_status)) : 
+			logm.info("Download item %4d [%s]: %s\n\t%s",i,url['id'],url['status'],"|".join(url['attrs']) ) 
 			i += 1
 		else :
 			logm.info("#%s",url['comment'])
@@ -305,19 +310,23 @@ def read_list(listfile):
 	i=0
 	url_list = list() 
 	lf  = open(listfile, "r")
+	v = 0
 	for line in lf:
 		if line.strip():
 			vid = dict() 
 			l = line.rstrip().split("#",1) 
 			attrs = l[0].split('\t') 
+			attrs = [attr.strip() for attr in attrs if attr.strip()] 
 			id_str = attrs[0] if(len(attrs) > 0) else "" 
 			vid["comment"] = l[1].strip() if(len(l) > 1) else "" 
-			vid["status"], vid["id"] = get_vid_from_url(id_str) 
+			vid["status"], vid["uid_type"], vid["id"] = get_uid_from_ref(id_str) 
 			vid["attrs"] = attrs[1:] if (len(attrs)>0) else "" 
 			url_list.append(vid) 
+			v = v+1 if(vid['uid_type'] == "video") else v 
+				
 		i += 1 
 
-	return  url_list  
+	return  url_list, v   
 
 #---------------------------------------------------------------
 # Support functions for Main 
@@ -367,8 +376,8 @@ logm = setup_main_logger()
 sp_char, id_type, vid = get_uid_from_ref(uidref)
 
 if(id_type == "ytlist"): 
-	url_list = read_list(vid) 
-	logm.info("Downloading %d videos from list %s",len(url_list),vid) 
+	url_list, count  = read_list(vid) 
+	logm.info("Downloading %d videos from list %s",count,vid) 
 	download_list(url_list,folder) 
 
 elif (id_type == "video"):
@@ -379,9 +388,9 @@ elif (id_type == "video"):
 		status = skip_codes[sp_char] if skip_codes.has_key(sp_char) else "ERROR" 
 		logm.info("Skipping vid %s: Status %s (%s)",vid,status,sp_char) 
 else:
-	print "Type currently not supported. or Error in id_reference"
+	logm.info("Type currently not supported. or Error in id_reference") 
 	status = skip_codes[sp_char] if skip_codes.has_key(sp_char) else "ERROR" 
-	print "Status {} sp_char {} id_type {} uid {}".format(status, sp_char, id_type, vid) 
+	logm.info("Status {} sp_char {} id_type {} uid {}".format(status, sp_char, id_type, vid)) 
 
 logm.info("Good bye... Enjoy the video!") 
 

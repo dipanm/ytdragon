@@ -14,7 +14,7 @@ deep_debug = False
 default_host = "youtube.com" 
 default_hurl = "https://"+default_host 
 
-skip_codes  = { "#": "Comment", "@" : "DONE", "?" : "BAD_ITEM", "=" : "COMMAND" } 
+skip_codes  = { "#": "COMMENT", "@" : "DONE", "?" : "BAD_ITEM", "=" : "COMMAND" } 
 uidtype_map = { "v"	: "video", 	"vid"	: "video",	"video"		: "video",
 	      	"c"	: "channel",	"ch" 	: "channel", 	"channel"	: "channel",
 	      	"u"	: "user", 	"usr"	: "user", 	"user"		: "user",
@@ -50,13 +50,17 @@ path_id_map ={ 	"watch"    : { "uid_type":"video",   "extract_id": extract_id_q,
 	   } 
 
 def get_uid_from_ref(uid_str):
-	sp_char  = ""
 	uid_type = "UNKNOWN"
 	uid      = "UNKNOWN_ID" 
 
+	if (len(uid_str) == 0 ): 
+		return skip_codes["#"], skip_codes["#"], ""
+
 	if(uid_str[0] in skip_codes.keys()) : 
-		sp_char = uid_str[0] 
+		status = skip_codes[uid_str[0]] 
 		uid_str = uid_str[1:] 
+	else: 
+		status = "OK" 
 			
 	if re.match('^(http|https)://', uid_str): #and (sp_char == ""):
 		parsed_url = urlparse.urlparse(uid_str)
@@ -80,7 +84,7 @@ def get_uid_from_ref(uid_str):
 		else: 
 			uid = "UNKNOWN_ID" 
 
-	return sp_char, uid_type, uid  
+	return status, uid_type, uid  
 
 # following errors to check 
 #  - if the first char belongs to special chars 
