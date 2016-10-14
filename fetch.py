@@ -324,15 +324,16 @@ def read_list(listfile):
 def parse_arguments(argv): 
 	logm = logging.getLogger() 
 	usage_str = "Usage: %s -f|--folder='destination' <download_reference> "
-	usge_str_2 = "-v|--vid 'videoid' -w|--web 'url' -p|--playlist -l|--ytlist 'url_list' -u|--user 'userid' -c|--channel 'channelid' "
+	usage_str_2 = "-v|--vid 'videoid' -w|--web 'url' -p|--playlist -l|--ytlist 'url_list' -u|--user 'userid' -c|--channel 'channelid' "
 	uid_ref = ''
-	uid_opt = ''
+	#uid_opt = ''
 	folder = ''
-	list_mode = 0 	
-	uid_key_list = { "-v", "-c", "-u", "-p", "-l", "-w", "--vid", "--channel", "--user", "--playlist", "--ytlist", "--web" } 
+	#list_mode = 0 	
+	#uid_key_list = { "-v", "-c", "-u", "-p", "-l", "-w", "--vid", "--channel", "--user", "--playlist", "--ytlist", "--web" } 
 
 	try:
-		opts, args = getopt.getopt(argv,"f:v:c:u:p:l:w:",["folder=","vid=","list=","channel=","user=","playlist=","ytlist=","web="])
+		#opts, args = getopt.getopt(argv,"f:v:c:u:p:l:w:",["folder=","vid=","list=","channel=","user=","playlist=","ytlist=","web="])
+		opts, args = getopt.getopt(argv,"f:",["folder="])
 	except getopt.GetoptError as err:
 		logm.error("Error in Options: %s",str(err)) 
 		logm.critical(usage_str,sys.argv[0])
@@ -345,59 +346,54 @@ def parse_arguments(argv):
 	for opt, arg in opts:
 		if opt in ("-f", "--folder"):
 			folder = arg
-		if opt in uid_key_list : 
-			uid_opt = opt 
-			uid_ref = arg
-			if opt in ("-v","--vid"):
-				list_mode = 0 
-			else: 
-				list_mode = 1 	
-
+		#if opt in uid_key_list : 
+		#	uid_opt = opt 
+		#	uid_ref = arg
+		#	if opt in ("-v","--vid"):
+		#		list_mode = 0 
+		#	else: 
+		#		list_mode = 1 	
+	#print args 
+	uid_ref = args[0] 
 	if ( folder == ''): 
 		logm.warning("Missing destination folder. Assuming './' (current working directory) ") 
 		folder = "./" 
 	else:
 		logm.debug("Destination folder for streams: %s",folder) 
 
-	if ( uid_opt  == '' ): 
+	if ( uid_ref  == '' ): 
 		logm.critical("Missing source. supply at least one reference to download") 
 		logm.critical(usage_str,sys.argv[0])
 		logm.critical(usage_str_2)
 		sys.exit(2)
 
-	return folder, uid_opt, uid_ref, list_mode 
+	return folder, uid_ref  
 
 #---------------------------------------------------------------
 # Main function
 
 logm = setup_main_logger() 
 
-(folder, uidopt, uidref, list_mode) = parse_arguments(sys.argv[1:]) 
+(folder, uidref) = parse_arguments(sys.argv[1:]) 
 vid = '-'
 
-if(uidopt == "-l" or uidopt == "--ytlist"): 
-	url_list = read_list(uidref) 
-	logm.info("Downloading %d videos from list %s",len(url_list),ulist) 
+status, sp_char, id_type, vid = get_uid_from_ref(uidref)
+#print "Status {} sp_char {} id_type {} uid {}".format(status, sp_char, id_type, vid) 
+
+if(id_type == "ytlist"): 
+	url_list = read_list(vid) 
+	logm.info("Downloading %d videos from list %s",len(url_list),vid) 
 	download_list(url_list,folder) 
 
-elif (uidopt == "-v" or uidopt == "--vid"):
+elif (id_type == "video"):
 	status, sp_char, id_type, vid = get_uid_from_ref(uidref)
 	if(status == "OK") : 
 		logm.info("Downloading video: [%s]",vid) 
 		download_video(vid,folder) 
 	else : 
 		logm.info("Unable to download vid %s: Status %s",vid,status) 
-
-elif (uidopt == "-w" or uidopt == "--web"):
-	status, sp_char, id_type, vid = get_uid_from_ref(uidref)
-	if(status == "OK" and id_type == "video") : 
-		logm.info("Downloading video: [%s]",vid) 
-		download_video(vid,folder) 
-	else : 
-		logm.info("Unable to download uid %s: %s",vid,status) 
 else:
-	status, sp_char, id_type, vid = get_uid_from_ref(uidref)
-	print "Mode currently not supported.\nStatus {} sp_char {} id_type {} uid {}".format(status, sp_char, id_type, vid) 
+	print "Mode currently not supported."
 
 logm.info("Good bye... Enjoy the video!") 
 

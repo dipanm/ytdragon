@@ -5,6 +5,7 @@ import string
 import re
 import urllib
 import urlparse
+import pprint 
 from lxml import html 
 
 from ytutils import clean_up_title 
@@ -12,6 +13,12 @@ from ytutils import clean_up_title
 deep_debug = False
 default_host = "youtube.com" 
 default_hurl = "https://"+default_host 
+
+uidtype_map = { "v"	: "video", 	"vid"	: "video",	"video"		: "video",
+	      	"c"	: "channel",	"ch" 	: "channel", 	"channel"	: "channel",
+	      	"u"	: "user", 	"usr"	: "user", 	"user"		: "user",
+	      	"p"	: "playlist", 	"pl"	: "playlist", 	"playlist"	: "playlist", 
+	      	"l" 	: "ytlist", 	"yl"	: "ytlist", 	"ytlist"	: "ytlist" } 
 
 url_map = { 	"UNKNOWN" : "", 
 		"video"   : "/watch?v=<ID>", 
@@ -36,7 +43,7 @@ def extract_id_p(parsed_url,pkey):
 	return uid 
 
 path_id_map ={ 	"watch"    : { "uid_type":"video",   "extract_id": extract_id_q, "key_ref": "v" 	},
-                "playlist\?" : { "uid_type":"list",    "extract_id": extract_id_q, "key_ref": "list"	},
+                "playlist" : { "uid_type":"list",    "extract_id": extract_id_q, "key_ref": "list"	},
                 "user"     : { "uid_type":"user",    "extract_id": extract_id_p, "key_ref": "user" 	},
                 "channel"  : { "uid_type":"channel", "extract_id": extract_id_p, "key_ref": "channel" 	}
 	   } 
@@ -56,23 +63,28 @@ def get_uid_from_ref(uid_str):
 	if re.match('^(http|https)://', uid_str): #and (sp_char == ""):
 		parsed_url = urlparse.urlparse(uid_str)
 		h = parsed_url.netloc
-		path = parsed_url.path 
+		path = parsed_url.path
+		base_path = path.split("/")[1]
 
 		if default_host not in h: 
 			status = "BAD_HOST" 
 		
 		else: 
-			status = "INCORRECT_PAGE" 	# default if you don't find actual one 
-			for idstr in path_id_map.keys(): 
-				if idstr in path: 
-					uid_type = path_id_map[idstr]["uid_type"] 
-					uid  = path_id_map[idstr]["extract_id"](parsed_url,path_id_map[idstr]["key_ref"]) 
-					status = "OK" 
-					break; 
+			if path_id_map.has_key(base_path) : 
+				uid_type = path_id_map[base_path]["uid_type"] 
+				uid  = path_id_map[base_path]["extract_id"](parsed_url,path_id_map[base_path]["key_ref"]) 
+				status = "OK" 
+			else: 
+				status = "INCORRECT_PAGE" 	# default if you don't find actual one 
 	else:
-		uid = uid_str
-		uid_type = "Generic" 
-		status = "OK" if uid.isalnum() else "BAD_UID" 
+		ul = uid_str.split("/",1) 
+		uid_type = uidtype_map[ul[0]] if uidtype_map.has_key(ul[0]) else "UNKNOWN"
+		if len(ul) > 1 : 
+			uid = ul[1].split("/")[0] if (uid_type != "ytlist") else ul[1]
+		else: 
+			uid = "UNKNOWN_ID" 
+
+		status = "OK" if not uid_type == "UNKNOWN" else "UNKNOWN_TYPE" 
 
 	return status, sp_char, uid_type, uid  
 
