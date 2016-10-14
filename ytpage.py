@@ -13,9 +13,68 @@ deep_debug = False
 default_host = "youtube.com" 
 default_hurl = "https://"+default_host 
 
-url_map = { 	"video": "/watch?v=<ID>", 
-		"list" : "/playlist?list=<ID>", 
-		"user" : "/user/<ID>/videos"	} 
+url_map = { 	"UNKNOWN" : "", 
+		"video"   : "/watch?v=<ID>", 
+		"list"    : "/playlist?list=<ID>", 
+		"user"    : "/user/<ID>/videos"	,
+		"channel" : "/channel/<ID>"	} 
+
+def extract_id_q(parsed_url,query): 
+	qdict = urlparse.parse_qs(parsed_url.query)
+	plid = qdict[query][0] if qdict.has_key(query) else "UNKNOWN_ID" 
+	return plid 
+
+def extract_id_p(parsed_url,pkey): 
+	path = parsed_url.path.split('/') 
+	i = 0 
+	for p in path : 
+		if pkey in p : 
+			break;
+		else: 
+		   i += 1 
+	uid = path[i+1] if (i <= len(path)) else "UNKNOWN_ID" 
+	return uid 
+
+path_id_map ={ 	"watch"    : { "uid_type":"video",   "extract_id": extract_id_q, "key_ref": "v" 	},
+                "playlist\?" : { "uid_type":"list",    "extract_id": extract_id_q, "key_ref": "list"	},
+                "user"     : { "uid_type":"user",    "extract_id": extract_id_p, "key_ref": "user" 	},
+                "channel"  : { "uid_type":"channel", "extract_id": extract_id_p, "key_ref": "channel" 	}
+	   } 
+
+def get_uid_from_ref(uid_str):
+	special_chars = { '#', '=', '@', '?' } 
+
+	sp_char  = ""
+	uid_type = "UNKNOWN"
+	status   = "ERROR"  
+	uid      = "UNKNOWN_ID" 
+
+	if(uid_str[0] in special_chars) : 
+		uid_str = uid_str[1:] 
+		sp_char = uid_str[0] 
+			
+	if re.match('^(http|https)://', uid_str): #and (sp_char == ""):
+		parsed_url = urlparse.urlparse(uid_str)
+		h = parsed_url.netloc
+		path = parsed_url.path 
+
+		if default_host not in h: 
+			status = "BAD_HOST" 
+		
+		else: 
+			status = "INCORRECT_PAGE" 	# default if you don't find actual one 
+			for idstr in path_id_map.keys(): 
+				if idstr in path: 
+					uid_type = path_id_map[idstr]["uid_type"] 
+					uid  = path_id_map[idstr]["extract_id"](parsed_url,path_id_map[idstr]["key_ref"]) 
+					status = "OK" 
+					break; 
+	else:
+		uid = uid_str
+		uid_type = "Generic" 
+		status = "OK" if uid.isalnum() else "BAD_UID" 
+
+	return status, sp_char, uid_type, uid  
 
 # following errors to check 
 #  - if the first char belongs to special chars 
@@ -70,6 +129,7 @@ def get_plid_from_url(string):
 		plid = string 
 
 	return plid 
+
 
 def get_page(pagetype,uid):
 
