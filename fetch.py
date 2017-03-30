@@ -35,7 +35,7 @@ enable_line_log = True
 line_log_path  = "./ytdragon.log" 
 enable_vid_log  = True 
 vidlog_path = "./logs"
-deep_debug = True 
+deep_debug = False
 
 default_host = "youtube.com" 
 default_hurl = "https://"+default_host 
@@ -373,7 +373,7 @@ logm = setup_main_logger()
 
 (folder, uidref) = parse_arguments(sys.argv[1:]) 
 
-sp_char, id_type, vid = get_uid_from_ref(uidref)
+status, id_type, vid = get_uid_from_ref(uidref)
 
 if(id_type == "ytlist"): 
 	url_list, count  = read_list(vid) 
@@ -381,12 +381,11 @@ if(id_type == "ytlist"):
 	download_list(url_list,folder) 
 
 elif (id_type == "video"):
-	if(sp_char == "") : 
+	if(status == "OK") : 
 		logm.info("Downloading video: [%s]",vid) 
 		download_video(vid,folder) 
 	else : 
-		status = skip_codes[sp_char] if skip_codes.has_key(sp_char) else "ERROR" 
-		logm.info("Skipping vid %s: Status %s (%s)",vid,status,sp_char) 
+		logm.info("Skipping vid %s: Status %s",vid,status) 
 else:
 	logm.info("Type currently not supported. or Error in id_reference") 
 	status = skip_codes[sp_char] if skip_codes.has_key(sp_char) else "ERROR" 

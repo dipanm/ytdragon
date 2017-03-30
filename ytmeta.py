@@ -123,7 +123,6 @@ def parse_watch_page(wpage):
 		vid_meta['max_res'] 	= f[0].split('/')[1] if (f != None)  else 0 
 		vid_meta['filesize'] 	= 0 	# right now we don't know 
 		vid_meta['duration']	= str(int(args['length_seconds'])/60)+":"+str(int(args['length_seconds'])%60)
-		print args['length_seconds'],vid_meta['duration'] 
 	else :
 		vid_meta['player_args'] = False 
 		vid_meta['max_res'] 	= 0
@@ -292,7 +291,5 @@ def load_video_meta(vid,express=False):
 		if not (vid_meta['stream_map']):
 			raise ytd_exception_meta("NO_STREAMS",wpage,vid_meta,"") 
      		
-		pprint.pprint(vid_meta) 
 		return vid_meta 
-
 
