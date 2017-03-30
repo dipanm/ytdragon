@@ -34,7 +34,8 @@ from ytutils import clean_up_title
 from ytmeta    import load_video_meta
 from ytmeta    import ytd_exception_meta
 from ytpage  import get_page
-from ytpage  import get_plid_from_url
+from ytpage  import get_uid_from_ref
+from ytpage  import get_vid_from_url
 
 ### User Config Variable ----------------------------
 
@@ -46,7 +47,7 @@ itemlog_path = "./logs"
 deep_debug = False
 
 max_threads = 40
-load_sequential = False 
+load_sequential = True 
 
 youtube = "https://www.youtube.com"
 unavail_list = { "[Deleted Video]", "[Private Video]" } 
@@ -90,7 +91,7 @@ def save_list(thelist,filename):
 	fp.write("# Item count: Total="+str(thelist['total'])+" Available ="+str(len(plist))+" Deleted="+str(thelist['unavail'])+" Duplicate="+str(thelist['duplicate'])+"\n")
 	fp.write("#-------------------------------------------------------\n")
 	for l in plist: 
-		fp.write(l['vid']+"  "+l['duration'].rjust(8)+"\t"+l['max_res'].rjust(10)+"   "+l['flags'].rjust(3)+"  "+l['author'].ljust(35)+"\t"+l['title']+"\n")
+		fp.write(l['vid']+"\t"+l['duration'].rjust(8)+"\t"+l['max_res'].rjust(10)+"\t"+l['flags'].rjust(3)+"\t"+l['author'].ljust(35)+"\t"+l['title']+"\n")
 	
 	fp.close() 
 	return 
@@ -99,7 +100,7 @@ def prune_list(thelist):
 	thelist['total'] = len(thelist['list']) 
 	thelist['unavail'] = 0 
 	thelist['duplicate'] = 0 
-	
+ 	return 	
 	seen = set() 
 	i = 0 
 	n = len(thelist['list']) 
@@ -123,9 +124,15 @@ def load_list(uid,uid_type):
 	thelist = { 'list_id': uid, 'list_type' : uid_type } 
 
 	# load page -- depending on type. only ytlist is different! TODO 
-	pl_page = get_page("list",uid) 
-
-	playlist_extract(pl_page['contents'],thelist)
+	if ( uid_type == "ytlist" ): 
+		lf  = open(uid, "r")
+		ytlines = lf.readlines() 
+		thelist['title'] = uid.rsplit("/",1)[-1] 
+		thelist['owner'] = "ytdragon" 
+		ytlist_extract(ytlines,thelist)
+	else: 
+		pl_page = get_page("playlist",uid) 
+		playlist_extract(pl_page['contents'],thelist)
 	
 	prune_list(thelist)
 	print_list_header(thelist) 
@@ -142,7 +149,7 @@ def status_update(i, vid="", title="") :
 	lslen = 110 
 	sys.stdout.write("\r"+" "*lslen)
 		
-	if(i > 0) : 
+	if(i >= 0) : 
 		tstr = title[:72] + "..." if (len(title) > 75) else title 
 		status_str = "\rProcessing: %3d :[%s]:%s" % (i, vid, tstr)
 		sys.stdout.write(status_str) 
@@ -189,7 +196,8 @@ def load_meta(v) :
 	if(v['title'] in unavail_list): 
 		return v 
 	try : 
-		vmeta = load_video_meta(v['vid'],True) 
+		print "Load meta() ... {}".format(v['vid']) 
+		vmeta = load_video_meta(v['vid']) 
 	except ytd_exception_meta as e:  
 		v['max_res'] = e.vidmeta['max_res'] if e.vidmeta.has_key('max_res') else "" 
 		v['author']  = e.vidmeta['author'] if e.vidmeta.has_key('author') else "" 
@@ -202,6 +210,8 @@ def load_meta(v) :
 	v['max_res'] = str(vmeta['max_res']) 
 	v['author']  = vmeta['author'] 
 	
+	dur = v['duration'] if v.has_key('duration') else "--:--" 
+	print "vid:"+v['vid']+" max_res="+v['max_res']+" Dur:"+dur+"\n"
 	flags = "V" if vmeta['type'] == "video" else "A"
 	flags = flags + "-$" if (vmeta['paid'] == True) else flags  
 	flags = flags + "-x" if (vmeta['isFamilyFriendly'] == True) else flags 
@@ -293,3 +303,64 @@ def playlist_extract(pl_page,thelist):
 	thelist['list'] = plist
 
 	return
+
+## -------------- function to parse ytlist ------------------------
+
+def ytlist_extract(ytlines,thelist):
+	i=0
+	url_list = list() 
+	pre_comment = "" 
+	v = 0
+	for line in ytlines:
+		if line.strip():
+			vid = dict() 
+			l = line.rstrip().split("#",1) 
+
+			comment = l[1] if (len(l) > 1) else "" 
+		
+			if( l[0] == ""): 	# so no details only comment 
+				pre_comment = pre_comment + comment + "\n"
+				continue 
+			else: 
+				details = l[0].split('\t',1) 
+
+			uidref = details[0] 
+			attrs = details[1].split("\t") if (len(details) > 0) else list() 
+
+			status, uid  = get_vid_from_url(uidref) 
+			#status, uid_type, uid = get_uid_from_ref(uidref) 
+			
+			#if(uid_type != "video"): 
+			#	print "only video type is supported!" 
+			#	pre_comment = pre_comment + "#" + line 
+			#	continue 
+			
+			vid['status']   = status
+			#vid['uid_type'] = uid_type
+			vid['vid']      = uid 
+			vid['attrs']    = attrs 
+			vid['pre_comment'] = pre_comment 
+			pre_comment = "" 
+			vid['comment']  = comment 
+			vid['title'] = "" 
+			vid['index'] = v 
+			url_list.append(vid) 
+			v = v+1 
+				
+			#attrs = l[0].split('\t') 
+			#attrs = [attr.strip() for attr in attrs if attr.strip()] 
+			#id_str = attrs[0] if(len(attrs) > 0) else "" 
+			#vid["comment"] = l[1].strip() if(len(l) > 1) else "" 
+			#vid["status"], vid["uid_type"], vid["vid"] = get_uid_from_ref(id_str) 
+			#vid["attrs"] = attrs[1:] if (len(attrs)>0) else "" 
+			#vid["title"] = "" 	# we don't know yet. 
+			#url_list.append(vid) 
+			#v = v+1 if(vid['uid_type'] == "video") else v 
+				
+		i += 1 
+
+	#pprint.pprint(url_list) 
+	thelist['list'] = url_list 
+	return 
+
+

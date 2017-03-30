@@ -6,6 +6,7 @@ import json
 import urllib
 import re
 import urlparse
+import pprint 
 
 from ytutils import print_pretty
 from ytpage import get_page
@@ -75,7 +76,7 @@ def fast_extract_fmt_list(script_str) :
 def parse_watch_page(wpage):
 
 	page = wpage['contents'] 
-	arg_keys = { 'length_seconds', 'loudness', 'timestamp', 'host_language', 'avg_rating', 'view_count', 'thumbnail_url', 
+	arg_keys = {  'loudness', 'timestamp', 'host_language', 'avg_rating', 'view_count', 'thumbnail_url', 
 	   'fmt_list', 'adaptive_fmts', 'url_encoded_fmt_stream_map', 'caption_tracks', 'caption_translation_languages' } 
 
 	prop_keys = { 'og:title' : 'title' , 'og:description' : 'description', 'og:type' : 'type',
@@ -121,6 +122,8 @@ def parse_watch_page(wpage):
 		f = args['fmt_list'].split(',')
 		vid_meta['max_res'] 	= f[0].split('/')[1] if (f != None)  else 0 
 		vid_meta['filesize'] 	= 0 	# right now we don't know 
+		vid_meta['duration']	= str(int(args['length_seconds'])/60)+":"+str(int(args['length_seconds'])%60)
+		print args['length_seconds'],vid_meta['duration'] 
 	else :
 		vid_meta['player_args'] = False 
 		vid_meta['max_res'] 	= 0
@@ -288,7 +291,8 @@ def load_video_meta(vid,express=False):
 		vid_meta['stream_map'] =  parse_stream_map(vid_meta)	
 		if not (vid_meta['stream_map']):
 			raise ytd_exception_meta("NO_STREAMS",wpage,vid_meta,"") 
-        
+     		
+		pprint.pprint(vid_meta) 
 		return vid_meta 
 
 

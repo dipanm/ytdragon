@@ -20,7 +20,7 @@ uidtype_map = { "v"	: "video", 	"vid"	: "video",	"video"		: "video",
 
 url_map = { 	"UNKNOWN" : "", 
 		"video"   : "/watch?v=<ID>", 
-		"list"    : "/playlist?list=<ID>", 
+		"playlist": "/playlist?list=<ID>", 
 		"user"    : "/user/<ID>/videos"	,
 		"channel" : "/channel/<ID>"	} 
 
