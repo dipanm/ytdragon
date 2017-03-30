@@ -293,7 +293,7 @@ def download_list(url_list,folder) :
 	
 	i = 1
 	for url in url_list:
-		pprint.pprint(url) 
+		#pprint.pprint(url) 
 		if( url['status'] == "OK"): 
 			vid = url['id']
 			logm.info("Download item %4d [%s]: %s",i,url['id'],str(datetime.datetime.now()))
@@ -333,7 +333,14 @@ def read_list(listfile):
 
 def parse_arguments(argv): 
 	logm = logging.getLogger() 
-	usage_str = "Usage: %s -f|--folder='destination' <download_reference> "
+	usage_str = "Usage: %s -f|--folder='destination' <download_reference> \n"
+	usage_str += " Download Reference can be defined as below \n"
+	usage_str += "  It can be direct URL such as http://www.youtube.com/watch?v=<vid> \n"
+	usage_str += "  or just v=<vid> or vid=<vid> or video=<vid> \n"
+	usage_str += " Simialarly, to download full yt list type l=<ytlist_file.yl> or yl=<ytlist_file.yl> or ytlist=<ytlist_file.yl>\n"
+	usage_str += "  Remember no spaces before or after '=' \n" 
+	usage_str += " Currently channel and playlist are not supported to be fetched directly so use 'extract' for the same"
+
 	folder = ""
 
 	if (len(argv) == 0) : 
@@ -388,8 +395,7 @@ elif (id_type == "video"):
 		logm.info("Skipping vid %s: Status %s",vid,status) 
 else:
 	logm.info("Type currently not supported. or Error in id_reference") 
-	status = skip_codes[sp_char] if skip_codes.has_key(sp_char) else "ERROR" 
-	logm.info("Status {} sp_char {} id_type {} uid {}".format(status, sp_char, id_type, vid)) 
+	logm.info("Status {} id_type {} uid {}".format(status, id_type, vid)) 
 
 logm.info("Good bye... Enjoy the video!") 
 

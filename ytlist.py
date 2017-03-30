@@ -46,8 +46,8 @@ enable_item_log  = True
 itemlog_path = "./logs"
 deep_debug = False
 
-max_threads = 40
-load_sequential = True 
+max_threads = 10
+load_sequential = False
 
 youtube = "https://www.youtube.com"
 unavail_list = { "[Deleted Video]", "[Private Video]" } 
@@ -91,7 +91,7 @@ def save_list(thelist,filename):
 	fp.write("# Item count: Total="+str(thelist['total'])+" Available ="+str(len(plist))+" Deleted="+str(thelist['unavail'])+" Duplicate="+str(thelist['duplicate'])+"\n")
 	fp.write("#-------------------------------------------------------\n")
 	for l in plist: 
-		fp.write(l['vid']+"\t"+l['duration'].rjust(8)+"\t"+l['max_res'].rjust(10)+"\t"+l['flags'].rjust(3)+"\t"+l['author'].ljust(35)+"\t"+l['title']+"\n")
+		fp.write("v="+l['vid']+"\t"+l['duration'].rjust(8)+"\t"+l['max_res'].rjust(10)+"\t"+l['flags'].rjust(3)+"\t"+l['author'].ljust(35)+"\t"+l['title']+"\n")
 	
 	fp.close() 
 	return 
@@ -196,7 +196,6 @@ def load_meta(v) :
 	if(v['title'] in unavail_list): 
 		return v 
 	try : 
-		print "Load meta() ... {}".format(v['vid']) 
 		vmeta = load_video_meta(v['vid']) 
 	except ytd_exception_meta as e:  
 		v['max_res'] = e.vidmeta['max_res'] if e.vidmeta.has_key('max_res') else "" 
@@ -211,7 +210,7 @@ def load_meta(v) :
 	v['author']  = vmeta['author'] 
 	
 	dur = v['duration'] if v.has_key('duration') else "--:--" 
-	print "vid:"+v['vid']+" max_res="+v['max_res']+" Dur:"+dur+"\n"
+	#print "vid:"+v['vid']+" max_res="+v['max_res']+" Dur:"+dur+"\n"
 	flags = "V" if vmeta['type'] == "video" else "A"
 	flags = flags + "-$" if (vmeta['paid'] == True) else flags  
 	flags = flags + "-x" if (vmeta['isFamilyFriendly'] == True) else flags 

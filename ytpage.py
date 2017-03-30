@@ -74,7 +74,7 @@ def get_uid_from_ref(uid_str):
 			else: 
 				uid_type = "UNKNOWN_PAGE" 
 	else:
-		ul = uid_str.split("/",1) 
+		ul = uid_str.split("=",1) 
 		uid_type = uidtype_map[ul[0]] if uidtype_map.has_key(ul[0]) else "UNKNOWN_TYPE"
 		if len(ul) > 1 : 
 			uid = ul[1].split("/")[0] if (uid_type != "ytlist") else ul[1]
