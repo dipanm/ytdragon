@@ -41,7 +41,7 @@ def extract_id_p(parsed_url,pkey):
 	return uid 
 
 path_id_map ={ 	"watch"    : { "uid_type":"video",   "extract_id": extract_id_q, "key_ref": "v" 	},
-                "playlist" : { "uid_type":"list",    "extract_id": extract_id_q, "key_ref": "list"	},
+                "playlist" : { "uid_type":"playlist","extract_id": extract_id_q, "key_ref": "list"	},
                 "user"     : { "uid_type":"user",    "extract_id": extract_id_p, "key_ref": "user" 	},
                 "channel"  : { "uid_type":"channel", "extract_id": extract_id_p, "key_ref": "channel" 	}
 	   } 

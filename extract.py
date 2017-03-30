@@ -34,7 +34,7 @@ from ytutils import clean_up_title
 from ytmeta    import load_video_meta
 from ytmeta    import ytd_exception_meta
 from ytpage  import get_page
-from ytpage  import get_plid_from_url
+from ytpage  import get_uid_from_ref
 from ytlist  import playlist_extract 
 from ytlist  import save_list
 from ytlist  import print_list_stats
@@ -81,29 +81,28 @@ def setup_main_logger():
 
 def parse_arguments(argv): 
 	logm = logging.getLogger() 
-	usage_str = "Usage: %s -p|--playlist=\"playlist_id/playlist_url\" -o|--outfile=\"outfilename\""
+	usage_str = "Usage: %s -o|--outfile=\"outfilename\" <download_reference>"
 	plref = ""
 	outfile = ""
 
+	if(len(argv) == 0): 
+		logm.critical(usage_str,sys.argv[0])
+		sys.exit(2) 
+
 	try:
-		opts, args = getopt.getopt(argv,"p:o:",["playlist=","outfile="])
+		opts, args = getopt.getopt(argv,"o:",["outfile="])
 	except getopt.GetoptError as err:
 		logm.error("Error in Options: %s",str(err)) 
 		logm.critical(usage_str,sys.argv[0])
 		sys.exit(2)
 	
-	if(len(opts) == 0): 
-		logm.critical(usage_str,sys.argv[0])
-		sys.exit(2) 
-
 	for opt, arg in opts:
-		if opt in ("-p", "--playlist"):
-			plref = arg
 		if opt in ("-o", "--outfile"): 
 			outfile = arg
 
+	plref = args[0] if (len(args) > 0) else "" 
 	if ( plref  == "" ): 
-		logm.critical("Missing playlist. Either supply item (id/url)  OR file with url_list") 
+		logm.critical("Missing Download Reference. Either supply item (id/url)  OR file with url_list") 
 		logm.critical(usage_str,sys.argv[0])
 		sys.exit(2)
 
@@ -116,13 +115,13 @@ logm = setup_main_logger()
 
 plref, outfile = parse_arguments(sys.argv[1:]) 
 
-plid = get_plid_from_url(plref) 
+status, uid_type, plid = get_uid_from_ref(plref) 
 
-pl_page = get_page("list",plid) 
+if(uid_type != "playlist"): 
+	print "Currently this program only supports 'playlist'"
+	exit(2) 
 
-plist = playlist_extract(plid,pl_page) 
-
+plist = playlist_extract(plid) 
 save_list(plist,outfile) 
 print_list_stats(plist) 
-
 

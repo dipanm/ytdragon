@@ -245,7 +245,9 @@ def parse_lmwidget(lmore):
 	return lmurl 
 
 
-def playlist_extract(plid,pl_page): 
+def playlist_extract(plid): 
+
+	pl_page = get_page("list",plid) 
 
 	tree = html.fromstring(pl_page['contents'])
 
