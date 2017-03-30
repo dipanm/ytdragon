@@ -8,9 +8,6 @@ import urlparse
 import pprint 
 from lxml import html 
 
-from ytutils import clean_up_title 
-
-deep_debug = False
 default_host = "youtube.com" 
 default_hurl = "https://"+default_host 
 

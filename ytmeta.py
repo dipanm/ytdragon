@@ -3,24 +3,17 @@
 from lxml import html 
 
 import json
-import logging
 import urllib
 import re
 import urlparse
 
-from ytutils import clean_up_title 
-from ytutils import write_to_file
 from ytutils import print_pretty
 from ytpage import get_page
 
 ### User Config Variable ----------------------------
 
-deep_debug = True 
-
 default_host = "youtube.com" 
 default_hurl = "https://"+default_host 
-
-#global logr 
 
 #------ Exception Handling class -----------------------------------------------
 class ytd_exception_meta(Exception): 
@@ -133,7 +126,6 @@ def parse_watch_page(wpage):
 		vid_meta['max_res'] 	= 0
 		vid_meta['has_caption'] = False 
 	
-	write_to_file(vid_meta['vid']+".html",player_script) 
 	return vid_meta 
 
 def parse_watch_page_express(wpage):
@@ -239,8 +231,6 @@ def parse_stream_map(args):
 					adp_stream_map_v.append(adp_map)
 				elif media == "audio":
 					adp_stream_map_a.append(adp_map)
-				#else:
-				#	logr.warning("unknown media ....%s",media) 
 				
 		adp_stream_map_v = sorted(adp_stream_map_v, key= lambda k: (int(k['res'])+int(k['fps'])), reverse=True) 
 		adp_stream_map_a = sorted(adp_stream_map_a, key= lambda k: int(k['bitrate']), reverse=True) 
@@ -278,10 +268,8 @@ def parse_stream_map(args):
 
 #---- The primary API function: -----------------------------------------------
 #	load_video_meta() 
-#	get_vid_from_url() 
 
 def load_video_meta(vid,express=False):
-	#logr = logging.getLogger(vid) 
 
 	vid_meta = dict() 
 	wpage = get_page("video",vid) 	# wpage = watch_page
