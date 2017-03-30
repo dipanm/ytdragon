@@ -78,10 +78,10 @@ def print_list(thelist):
 def save_list(thelist,filename): 
 	plist = thelist['list'] 
 
-	if(filename != ""): 
-		fp = open(filename,"w") 
-	else: 
-		fp = sys.stdout
+	if(filename == ""): 
+		raise ValueError("filename can't be empty") 
+
+	fp = open(filename,"w") 
 
 	fp.write("# Playlist: "+thelist['plid']+"\n") 
 	fp.write("# Title: "+thelist['title']+"\n") 

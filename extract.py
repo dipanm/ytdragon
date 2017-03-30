@@ -81,7 +81,7 @@ def setup_main_logger():
 
 def parse_arguments(argv): 
 	logm = logging.getLogger() 
-	usage_str = "Usage: %s -o|--outfile=\"outfilename\" <download_reference>"
+	usage_str = "Usage: %s [-o|--outfile=\"outfilename\"] <download_reference>"
 	plref = ""
 	outfile = ""
 
@@ -122,6 +122,13 @@ if(uid_type != "playlist"):
 	exit(2) 
 
 plist = playlist_extract(plid) 
-save_list(plist,outfile) 
 print_list_stats(plist) 
+
+if(outfile == ""): 
+	outfile = clean_up_title(plist['title'])+".yl"
+	print "outfile not supplied. Playlist will be saved in: \"{}\" ".format(outfile) 
+try: 
+	save_list(plist,outfile)
+except (IOError, ValueError) as err: 
+	print "Can't save playlist %s:".format(outfile) 
 
