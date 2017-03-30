@@ -55,7 +55,7 @@ unavail_list = { "[Deleted Video]", "[Private Video]" }
 # Generic functions for all types of list 
 
 def print_list_header(thelist): 
-	print "# Playlist: " +thelist['plid']
+	print "# "+thelist['list_type']+": "+thelist['list_id']	
 	print "# Title: "    +thelist['title']
 	print "# Owner: "    +thelist['owner']
 	print "# Total: "    +str(thelist['total']) 
@@ -83,7 +83,7 @@ def save_list(thelist,filename):
 
 	fp = open(filename,"w") 
 
-	fp.write("# Playlist: "+thelist['plid']+"\n") 
+	fp.write("# "+thelist['list_type']+": "+thelist['list_id']+"\n") 
 	fp.write("# Title: "+thelist['title']+"\n") 
 	fp.write("# Owner: "+thelist['owner']+"\n") 
 	#fp.write("# URL: "+youtube+"/playlist?=list="+playlist['plid']+"\n") # This needs to change to take care of any type of URL! 
@@ -117,6 +117,25 @@ def prune_list(thelist):
 			i += 1  
 			
 	return 
+ 
+def load_list(uid,uid_type): 
+
+	thelist = { 'list_id': uid, 'list_type' : uid_type } 
+
+	# load page -- depending on type. only ytlist is different! TODO 
+	pl_page = get_page("list",uid) 
+
+	playlist_extract(pl_page['contents'],thelist)
+	
+	prune_list(thelist)
+	print_list_header(thelist) 
+
+	if(load_sequential) : 
+		thelist['list'] = load_meta_info(thelist['list']) 
+	else : 
+		thelist['list'] = load_meta_info_parallel(thelist['list']) 
+
+	return thelist 
  
 #-------------------------------------------------------------------------------
 def status_update(i, vid="", title="") :
@@ -234,7 +253,7 @@ def playlist_parse(list_content,last=0):
 
 	return plist 
 	
-def parse_lmwidget(lmore): 
+def playlist_parse_lmwidget(lmore): 
 	lmurl = ""
 	if(lmore == None): 
 		return lmurl 
@@ -245,19 +264,19 @@ def parse_lmwidget(lmore):
 	return lmurl 
 
 
-def playlist_extract(plid): 
+def playlist_extract(pl_page,thelist): 
 
-	pl_page = get_page("list",plid) 
+	title_xpath = '//h1[@class="pl-header-title"]/text()'
+	owner_xpath = '//h1[@class="branded-page-header-title"]/span/span/span/a/text()'
 
-	tree = html.fromstring(pl_page['contents'])
+	tree = html.fromstring(pl_page)
 
-	t = tree.xpath('//h1[@class="pl-header-title"]/text()')
-	title = clean_up_title(t[0]) if (len(t) > 0) else "unknown title" 
-	owner = tree.xpath('//h1[@class="branded-page-header-title"]/span/span/span/a/text()')[0]
-	playlist = { 'plid': plid, 'title': title, 'owner': owner } 
-
+	t = tree.xpath(title_xpath)
+	thelist['title'] = clean_up_title(t[0]) if (len(t) > 0) else "no_name list" 
+	thelist['owner'] = tree.xpath(owner_xpath)[0]
+		
 	plist = playlist_parse(tree) 
-	lmurl = parse_lmwidget(tree) 
+	lmurl = playlist_parse_lmwidget(tree) 
 	
 	count = 1
 	while (len(lmurl)>0): 
@@ -271,15 +290,6 @@ def playlist_extract(plid):
 		lmurl = parse_lmwidget(ajax_resp['lm_widget']) 
 		count += 1
 	
-	playlist['list'] = plist
-	prune_list(playlist)
-	print_list_header(playlist) 
+	thelist['list'] = plist
 
-	if(load_sequential) : 
-		playlist['list'] = load_meta_info(plist) 
-	else : 
-		playlist['list'] = load_meta_info_parallel(plist) 
-
-	return playlist 
-
-
+	return

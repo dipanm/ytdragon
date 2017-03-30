@@ -35,7 +35,7 @@ from ytmeta    import load_video_meta
 from ytmeta    import ytd_exception_meta
 from ytpage  import get_page
 from ytpage  import get_uid_from_ref
-from ytlist  import playlist_extract 
+from ytlist  import load_list  
 from ytlist  import save_list
 from ytlist  import print_list_stats
 
@@ -121,7 +121,7 @@ if(uid_type != "playlist"):
 	print "Currently this program only supports 'playlist'"
 	exit(2) 
 
-plist = playlist_extract(plid) 
+plist = load_list(plid,uid_type) 
 print_list_stats(plist) 
 
 if(outfile == ""): 
