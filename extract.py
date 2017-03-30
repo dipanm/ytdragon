@@ -35,6 +35,9 @@ from ytmeta    import load_video_meta
 from ytmeta    import ytd_exception_meta
 from ytpage  import get_page
 from ytpage  import get_plid_from_url
+from ytlist  import playlist_extract 
+from ytlist  import save_list
+from ytlist  import print_list_stats
 
 ### User Config Variable ----------------------------
 
@@ -73,241 +76,6 @@ def setup_main_logger():
  
 	return logm
 	
-#### ------------------------------------------------
-
-def load_more_ajax(url):
-	logr = logging.getLogger() 
-
-	logr.debug("Getting the page: %s",url) 
-
-	response = urllib.urlopen(url)
-	code = response.getcode() 
-	if(code != 200):
-		logm.critical("Error fetching ajax response") 
-		return { 'error' : -1} 
-
-	data = json.load(response) 
-	data['content_html'] = "<table id='pl-video-table'><tbody>"+data['content_html']+"</tbody></table>"
-
-	list_content = html.fromstring(data['content_html'])
-	if(len(data['load_more_widget_html'])>0): 
-		lm_widget = html.fromstring(data['load_more_widget_html']) 
-	else: 
-		lm_widget = None 
-
-	return { 'error' : 0, 'list_content': list_content, 'lm_widget': lm_widget} 
-
-def parse_playlist(list_content,last=0):
-	plist = list() 
-	count = 1
-	tstr = '//table[@id="pl-video-table"]/tbody/tr'
-	i = last
-	for l in list_content.xpath(tstr):
-		vid     = list_content.xpath(tstr+"["+str(count)+"]/@data-video-id")[0] 
-		title    = clean_up_title(list_content.xpath(tstr+"["+str(count)+"]/@data-title")[0]) 
-		t     = list_content.xpath(tstr+"["+str(count)+"]/td[@class='pl-video-time']/div/div[@class='timestamp']/span/text()")
-		time = t[0]  if (t) else "00:00" 
-		i = i+1 
-		plitem = ({'index': i, 'vid':vid,'title':title,'duration':str(time) }) 
-		plist.append(plitem) 
-		count += 1; 
-
-	return plist 
-	
-def parse_lmwidget(lmore): 
-	lmurl = ""
-	if(lmore == None): 
-		return lmurl 
-
-	lmurlobj = lmore.xpath('//button[@data-uix-load-more-target-id="pl-load-more-destination"]/@data-uix-load-more-href')
-	if(len(lmurlobj) > 0): 
-		lmurl = youtube+lmurlobj[0] 
-	return lmurl 
-
-
-#---------------------------------------------------------------
-# Top level functions for Main 
-
-def print_playlist_header(playlist): 
-	print "# Playlist: " +playlist['plid']
-	print "# Title: "    +playlist['title']
-	print "# Owner: "    +playlist['owner']
-	print "# Total: "    +str(playlist['total']) 
-
-def print_playlist_stats(playlist): 
-	plist = playlist['list'] 
-	del_items = playlist['total']-len(plist)
-	print "# Item count: Total="+str(playlist['total'])+" Available ="+str(len(plist))+" Deleted="+str(playlist['unavail'])+" Duplicate="+str(playlist['duplicate'])
-
-def print_playlist(playlist): 
-	plist = playlist['list'] 
-	print_playlist_header(playlist)
-	print_playlist_stats(playlist)
-	print "#--------------------------------------------------------"
-	for l in plist: 
-		print l['vid']+"\t"+l['max_res']+"\t"+l['title'] 
-
-	return 
-
-def save_playlist(playlist,filename): 
-	plist = playlist['list'] 
-
-	if(filename != ""): 
-		fp = open(filename,"w") 
-	else: 
-		fp = sys.stdout
-
-	fp.write("# Playlist: "+playlist['plid']+"\n") 
-	fp.write("# Title: "+playlist['title']+"\n") 
-	fp.write("# Owner: "+playlist['owner']+"\n") 
-	fp.write("# URL: "+youtube+"/playlist?=list="+playlist['plid']+"\n") 
-	fp.write("# Item count: Total="+str(playlist['total'])+" Available ="+str(len(plist))+" Deleted="+str(playlist['unavail'])+" Duplicate="+str(playlist['duplicate'])+"\n")
-	fp.write("#-------------------------------------------------------\n")
-	for l in plist: 
-		fp.write(l['vid']+"  "+l['duration'].rjust(8)+"\t"+l['max_res'].rjust(10)+"   "+l['flags'].rjust(3)+"  "+l['author'].ljust(35)+"\t"+l['title']+"\n")
-	
-	fp.close() 
-	return 
-
-#-------------------------------------------------------------------------------
-
-def convert_secs_to_time(seconds) :
-	m, s = divmod(int(seconds), 60)
-	h, m = divmod(m, 60)
-	time = "%d:%02d:%02d" % (h, m, s)
-	
-	return time 
-
-def status_update(i, vid="", title="") :
-	lslen = 110 
-	sys.stdout.write("\r"+" "*lslen)
-		
-	if(i > 0) : 
-		tstr = title[:72] + "..." if (len(title) > 75) else title 
-		status_str = "\rProcessing: %3d :[%s]:%s" % (i, vid, tstr)
-		sys.stdout.write(status_str) 
-	else:
-		sys.stdout.write("\r")
-
-	sys.stdout.flush()
-	return 
-
-#-------------------------------------------------------------------------------
-def load_meta_info(plist) :
-	
-	total = len(plist) 
-	i = 0 
-	for v in plist: 
-		i += 1 
-		v = load_meta(v) 
-	
-	status_update(-1) 	
-	return plist 
-
-def load_meta_info_parallel(plist) : 	# second attempt 
-	
-	total = len(plist) 
-	newlist = list() 
-	thread_count = min(max_threads,total) 
-	pool = mp.Pool(thread_count) 
-	count = 0
-	while (count < total): 
-		outq = pool.map(load_meta,plist[count:count+thread_count]) 
-		newlist.extend(outq) 
-		count += thread_count 
-
-	status_update(-1) 	
-	return newlist
-
-def load_meta(v) :
-	v['max_res']  = ""	# This is default if any of the exceptions skip filling them.
-	v['filesize'] = 0 
-	v['title']    = "" if not v.has_key('title') else v['title'] 
-	
-	if(v['title'] in unavail_list): 
-		return v 
-	try : 
-		vmeta = load_video_meta(v['vid'],True) 
-	except ytd_exception_meta as e:  
-		v['max_res'] = e.vidmeta['max_res'] if e.vidmeta.has_key('max_res') else "" 
-		v['author']  = e.vidmeta['author'] if e.vidmeta.has_key('author') else "" 
-		v['filesize'] = 0 
-		v['flags'] = "" 
-		return v
-	except ValueError: 	## need to debug.. jsonload gets many a times. 
-		return v 
-
-	v['max_res'] = str(vmeta['max_res']) 
-	v['author']  = vmeta['author'] 
-	
-	flags = "V" if vmeta['type'] == "video" else "A"
-	flags = flags + "-$" if (vmeta['paid'] == True) else flags  
-	flags = flags + "-x" if (vmeta['isFamilyFriendly'] == True) else flags 
-
-	v['flags'] = flags
-
-	status_update(v['index'],v['vid'],v['title']) 
-	return v 
-	
-#-------------------------------------------------------------------------------
-def extract_playlist(plid,pl_page): 
-
-	tree = html.fromstring(pl_page['contents'])
-
-	t = tree.xpath('//h1[@class="pl-header-title"]/text()')
-	title = clean_up_title(t[0]) if (len(t) > 0) else "unknown title" 
-	owner = tree.xpath('//h1[@class="branded-page-header-title"]/span/span/span/a/text()')[0]
-	playlist = { 'plid': plid, 'title': title, 'owner': owner } 
-
-	plist = parse_playlist(tree) 
-	lmurl = parse_lmwidget(tree) 
-	
-	count = 1
-	while (len(lmurl)>0): 
-		#print "Loading next ... "+lmurl 
-		ajax_resp = load_more_ajax(lmurl) 
-		if(ajax_resp['error'] <0 ): 
-			print "Error extracting load more... returning the list" 
-			break
-		pl = parse_playlist(ajax_resp['list_content'],len(plist))
-		plist.extend(pl)
-		lmurl = parse_lmwidget(ajax_resp['lm_widget']) 
-		count += 1
-	
-	playlist['list'] = plist
-	prune_playlist(playlist)
-	print_playlist_header(playlist) 
-
-	if(load_sequential) : 
-		playlist['list'] = load_meta_info(plist) 
-	else : 
-		playlist['list'] = load_meta_info_parallel(plist) 
-
-	return playlist 
-
-def prune_playlist(playlist): 
-	playlist['total'] = len(playlist['list']) 
-	playlist['unavail'] = 0 
-	playlist['duplicate'] = 0 
-	
-	seen = set() 
-	i = 0 
-	n = len(playlist['list']) 
-	while i < n : 
-		if(playlist['list'][i]['title'] in unavail_list): 
-			del playlist['list'][i] 
-			playlist['unavail'] += 1
-			n = n - 1
-		elif(playlist['list'][i]['vid'] in seen): 
-			del playlist['list'][i] 
-			playlist['duplicate'] += 1
-			n = n - 1 
-		else :
-			seen.add(playlist['list'][i]['vid']) 
-			i += 1  
-			
-	return 
- 
 #---------------------------------------------------------------
 # Support functions for Main 
 
@@ -352,9 +120,9 @@ plid = get_plid_from_url(plref)
 
 pl_page = get_page("list",plid) 
 
-plist = extract_playlist(plid,pl_page) 
+plist = playlist_extract(plid,pl_page) 
 
-save_playlist(plist,outfile) 
-print_playlist_stats(plist) 
+save_list(plist,outfile) 
+print_list_stats(plist) 
 
 
