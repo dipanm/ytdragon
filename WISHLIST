@@ -1,33 +1,36 @@
 #--------------------------------------------------------------------------------------------
 # Wish list 
-# 	- get rid of ssl error 
-#	- skip webm - pirorities mp4 (at least not under ADP) 
+# 	- get rid of ssl error 	[ fixed with certifi ] 
+#	- skip webm - pirorities mp4 (at least not under ADP) [ DONE! ]
 #	- deal with network failures. 
 #	- deal with resume on socket. (resume partial downloads) 
-#	- deal with youtube 404
-#	- don't say 'Enjoy the video' when there is no download.
-#	- maintain a trace and don't redownload what you have already got. 
-# 	- skip what is already downloaded 
+#	- deal with youtube 404		[ dealt with in get_page ]
+#	- don't say 'Enjoy the video' when there is no download. 
+#	- maintain a trace and don't redownload what you have already got. { verify in the directory ... } 
 #	- where and how to keep the trace? what is the file format? 
-#	- capture critical stuff and do clean exit when user presses Ctr+C 
-#	- you can also check if the file is physically present. 
-#	- needs to see that duration available locally matches with what is claimed by YT
-#	- list control - follow list, pause, stop and resume post what is finished. 
-#	- if somethings fail / skip that download item, and go on to next. 
 #	- maintain csv generator that can keep the trace. 
-#	- read list file which can be a CSV - as extracted by channel decoders / playlist decoders etc. 
-#	- mark column that will allow users to select/deselect files required to download (?) 
-#	- parallel thread downloading 
-#	- proper logging on per download basis. (vid.log) independent of stdout for basic purpose. 
-#	- bring ffmpeg output to perstream log 
-#	- ffmpeg -vcoded copy doesn't work! 
-#	- generalize the output file format 
 #	- downalod_stream function should provide data of actual status and details of download (put it to trace)
+#	- you can also check if the file is physically present. 
+# 	- skip what is already downloaded  { verify in the directory ... } 
 #	- get watch page to retrive the play duration - dont' need to downloard the full thing for it. 
-#	- download captions and convert it to srt that VLC can play 
-#	- prefer p60 over p30 videos
+#	- needs to see that duration available locally matches with what is claimed by YT { to verify if the file downloaded is complete! } 
+#	- MD5 or play duration verification of Media files (large ones) 
+#	- Resume incomplete downloads from where they were left 
+#	- capture critical stuff and do clean exit when user presses Ctr+C 
+#	- list control - follow list, pause, stop and resume post what is finished. 
+#	- make it interactive shell? i.e. commands can be given while work is going on. Press Ctr+C to interrupt
+#	- if somethings fail / skip that download item, and go on to next. [ Done. Works in list ]
+#	- read list file which can be a CSV - as extracted by channel decoders / playlist decoders etc. [ Done! .yl file ]
+#	- mark column that will allow users to select/deselect files required to download (?) [ Done! yl file allows #,@ etc. ]
+#	- parallel thread downloading 
+#	- proper logging on per download basis. (vid.log) independent of stdout for basic purpose. [ Done! ] 
+#	- bring ffmpeg output to perstream log [Done!]
+#	- ffmpeg -vcoded copy doesn't work! 	[Done!]
+#	- generalize the output file format ... make it what user wants. Can be done at FFMPEG level. 
+#	- download captions and convert it to srt that VLC can play [ Done! ]
+#	- prefer p60 over p30 videos	[ Done! ]
 #	- network reconnect should re-establish things
-#	- move to python3
+#	- move to python3 x DONT!
 #	- mkdir if folder for -f doesn't exist. 
 #	- ask if the file to be downloaded already exists
 #	- yl format to have critical info when created by extract e.g. resolution, author, timelength, cc/no-cc etc.
@@ -38,37 +41,37 @@
 #	- generic policies in what to fetch : AudioOnly/VideoOnly/AV, Max res, 
 #	- post processing of video. e.g. convert to mp3
 #	- in case of multiple parallel downloads, the current \r funda won't work. So need central reporting engine.
-#	- If youtube throws 404/403 - in actual downloads. it should not proceed like a normal flow. Exception should be handled.
+#	- If youtube throws 404/403 - in actual downloads. it should not proceed like a normal flow. Exception should be handled. [ Done! ]
 #	- Deal with signatured streams that otherwise throws 403 (e.g. '-RMD88DNaGk') 
-#	- MD5 or play duration verification of Media files (large ones) 
-#	- Resume incomplete downloads from where they were left 
 #	- there exists custom urls for channels. see https://www.youtube.com/account_advanced
 #	- my own channel is different from std (makemegenious) https://www.youtube.com/channel/UCzvGqEme9-yngxiYXY_Zk7A
 #	- tabs being compulsory in .yl files is a problem, specially when the files are handwritten. 
 #	- fetch can now be given multiple uid_references which it can download all serially
 #	- now the .yl in turn can have references to full channel, playlist etc. expand all of them before download 
+# 	- file issues for well defined items. 
 #----------------------------------------------------------------------------------------------------
 # Code TODO 
-#	- clean up overall flow of messages on console and in logs 
-#	- use exceptions instead of status codes/errors in most return calls
-# 	- generalized function for page download 
-#	- generlize id from url for watch, playlist, channel 
-#	- get rid of print_stream_map functions. Simplify with pretty_print 
+#	- clean up overall flow of messages on console and in logs [ Done! ] - more for later. 
+#	- use exceptions instead of status codes/errors in most return calls	[ Done in many parts! ] 
+# 	- generalized function for page download 	[ Done. get_page ! ] 
+#	- generlize id from url for watch, playlist, channel 	[ Done. ] 
+#	- get rid of print_stream_map functions. Simplify with pretty_print [ Done. ] 
 #	- make item logger global (how will you handle in multithread situation?) 
 #	- centrlized all standard strings (including youtube.com/xxx where we are assuming known url 
 #	- get rid of print_smap_XXX functions and no extra return value from parse_stream_map 
-#	- move pretty_print to ytuitls 
-#	- reduce/remove dependency on logr from most possible lower level functions 
-#	- rename dlItem to something better. That is the base object for getting info!
-# 	- function that extract meta info will be out from fetch so extract can use it. 
-#	- generalize get_watch_page into different types of page e.g. playlist, channel/user etc. 
-#	- cleanup title is actually now part of download_streams. so should not be in utils 
+#	- move pretty_print to ytuitls [ Done! ] 
+#	- reduce/remove dependency on logr from most possible lower level functions [ Done! ] 
+#	- rename dlItem to something better. That is the base object for getting info! [ Gone! ] 
+# 	- function that extract meta info will be out from fetch so extract can use it. [ Done! ] 
+#	- generalize get_watch_page into different types of page e.g. playlist, channel/user etc. [Done!]
+#	- cleanup title is actually now part of download_streams. so should not be in utils [ Done! ] 
 #	- keep all common strings in a central place 
 #	- it's time, the code must have classes for important stuff. 
-#	- pretty_print to take care of list specially?
-#	- id from url should also be generalized for video/playlist/channels/user 
+#	- pretty_print to take care of list specially? [ Done! ] 
+#	- id from url should also be generalized for video/playlist/channels/user [ Done! ] 
 #	- geting page, streams and captions all have different types of download functions. Generalize!
-#	- simplify format which get_uid_from_ref provides and read_list generates into common format. 
+#	- create your own powerful downloader which can go chunk-by-chunk with better control. 
+#	- simplify format which get_uid_from_ref provides and read_list generates into common format. [ Done in last check-in]
 #	- load_list of different type should come with simple and single abstraction. 
 #	- list should now be generlized and should be out from extract into ytlist
 #	- list should be able to deal with all types of lists : channel, user, playlist, ytlist
