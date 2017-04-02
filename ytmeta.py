@@ -30,6 +30,17 @@ class ytd_exception_meta(Exception):
 		self.vidmeta	= meta
 		self.msgstr 	= extra_msg
 
+## --- Create Default vid_meta ----
+def create_default_vid_meta(vid="",title=""): 	# This are default must have values actual parsing keeps filling them.
+	v = dict() 
+	v['vid']      = vid
+	v['title']    = title
+	v['author']   = "" 
+	v['max_res']  = ""
+	v['filesize'] = 0 
+	v['flags']    = ""
+
+	return v 
 
 ##--- support functions -------------------------------------------------------
 def smap_to_str(s):

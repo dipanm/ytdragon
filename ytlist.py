@@ -31,8 +31,9 @@ from xml.dom import minidom
 from HTMLParser import HTMLParser
 
 from ytutils import clean_up_title 
-from ytmeta    import load_video_meta
-from ytmeta    import ytd_exception_meta
+from ytmeta  import load_video_meta
+from ytmeta  import ytd_exception_meta
+from ytmeta  import create_default_vid_meta
 from ytpage  import get_page
 from ytpage  import get_uid_from_ref
 from ytpage  import get_vid_from_url
@@ -189,11 +190,7 @@ def load_meta_info_parallel(plist) : 	# second attempt
 	return newlist
 
 def load_meta(v) :
-	v['max_res']  = ""	# This is default if any of the exceptions skip filling them.
-	v['filesize'] = 0 
-	v['title']    = "" if not v.has_key('title') else v['title'] 
-	
-	if(v['title'] in unavail_list): 
+	if(v['title'].lower() in unavail_list): # Assuming the default keys are filled.
 		return v 
 	try : 
 		vmeta = load_video_meta(v['vid']) 
@@ -256,7 +253,9 @@ def playlist_parse(list_content,last=0):
 		t     = list_content.xpath(tstr+"["+str(count)+"]/td[@class='pl-video-time']/div/div[@class='timestamp']/span/text()")
 		time = t[0]  if (t) else "00:00" 
 		i = i+1 
-		plitem = ({'index': i, 'vid':vid,'title':title,'duration':str(time) }) 
+		plitem = create_default_vid_meta(vid,title)  
+		plitem['index'] = i
+		plitem['duration'] = str(time)  
 		plist.append(plitem) 
 		count += 1; 
 
