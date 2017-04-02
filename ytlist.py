@@ -213,6 +213,7 @@ def load_meta(v) :
 	flags = flags + "-x" if (vmeta['isFamilyFriendly'] == True) else flags 
 
 	v['flags'] = flags
+	v['vmeta'] = vmeta 
 
 	status_update(v['index'],v['vid'],v['title']) 
 	return v 

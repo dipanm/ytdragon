@@ -247,28 +247,32 @@ def download_streams(vidmeta, folder):
 #---------------------------------------------------------------
 # Top level functions for Main 
 
-def download_video(vid,folder):
+def download_video(vid_item,folder):
 	logr = setup_vid_logger(vid) 
 
-	try:
-		vidmeta = load_video_meta(vid)
-	except ytd_exception_meta as e: 
-		if (e.errtype == "PAGE_FETCH_ERR"): 
-			logr.critical("\t{} :{}".format(e.errmsg,e.msgstr))
-		if (e.errtype == "YOUTUBE_ERROR"): 
-			logr.critical(e.errmsg) 
-			logr.info("-"*45+"\n"+e.msgstr+"\n"+"-"*45) 
-		if (e.errtype == "BAD_PAGE") : 
-			logr.critical("\t"+e.errmsg) 
-			print_pretty(logr,"Parsing failed: vid_meta "+"="*20,e.vidmeta) 
-		if (e.errtype == "NO_STREAMS") : 
-			logr.info("\tTitle:'%s'\n\tAuthor:'%s'",e.vidmeta['title'],e.vidmeta['author'])  
-			logr.critical("\t"+e.errmsg) 
-			print_pretty(logr,"Parsing failed: vid_meta "+"="*20,e.vidmeta) 
-				
-		if(deep_debug): 
-			write_to_file(vid+".html",e.page['contents']) 
-		return 
+	if vid_item.has_key('vmeta'):   
+		print "Meta already downloaded.. not fetching again" 
+		vidmeta = vid_item['vmeta'] 
+	else: 
+		try:
+			vidmeta = load_video_meta(vid_item['vid'])
+		except ytd_exception_meta as e: 
+			if (e.errtype == "PAGE_FETCH_ERR"): 
+				logr.critical("\t{} :{}".format(e.errmsg,e.msgstr))
+			if (e.errtype == "YOUTUBE_ERROR"): 
+				logr.critical(e.errmsg) 
+				logr.info("-"*45+"\n"+e.msgstr+"\n"+"-"*45) 
+			if (e.errtype == "BAD_PAGE") : 
+				logr.critical("\t"+e.errmsg) 
+				print_pretty(logr,"Parsing failed: vid_meta "+"="*20,e.vidmeta) 
+			if (e.errtype == "NO_STREAMS") : 
+				logr.info("\tTitle:'%s'\n\tAuthor:'%s'",e.vidmeta['title'],e.vidmeta['author'])  
+				logr.critical("\t"+e.errmsg) 
+				print_pretty(logr,"Parsing failed: vid_meta "+"="*20,e.vidmeta) 
+					
+			if(deep_debug): 
+				write_to_file(vid+".html",e.page['contents']) 
+			return 
 
 	print_pretty(logr,"Parsing successful: vid_meta "+"="*20,vidmeta) 
 	smap = vidmeta['stream_map']
@@ -294,7 +298,7 @@ def download_list(download_list,folder) :
 	for item in download_list['list']:
 		logm.info("Download item %4d [%s]: %s",i,item['vid'],str(datetime.datetime.now()))
 		vid = item['vid']
-		download_video(item['vid'],folder) 
+		download_video(item,folder) 
 		i += 1
 	return
 
@@ -360,8 +364,9 @@ if(status != "OK") :
 
 if (uid_type == "video"):
 	logm.info("Downloading video: [%s]",uid) 
-	vid = uid 
-	download_video(vid,folder) 
+	vid = uid
+	vid_item = create_default_vid_meta(uid)  
+	download_video(vid_item,folder) 
 
 elif( (uid_type == "ytlist") or (uid_type == "playlist")):  
 	logm.info("Extracting %s [%s]",uid_type,uid) 
