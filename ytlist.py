@@ -47,10 +47,10 @@ itemlog_path = "./logs"
 deep_debug = False
 
 max_threads = 10
-load_sequential = False
+load_sequential = True
 
 youtube = "https://www.youtube.com"
-unavail_list = { "[Deleted Video]", "[Private Video]" } 
+unavail_list = { "[deleted video]", "[private video]" } 
 
 #---------------------------------------------------------------
 # Generic functions for all types of list 
@@ -100,12 +100,13 @@ def prune_list(thelist):
 	thelist['total'] = len(thelist['list']) 
 	thelist['unavail'] = 0 
 	thelist['duplicate'] = 0 
- 	return 	
+
 	seen = set() 
 	i = 0 
 	n = len(thelist['list']) 
 	while i < n : 
-		if(thelist['list'][i]['title'] in unavail_list): 
+		t = thelist['list'][i]['title'].lower() 
+		if(t in unavail_list): 
 			del thelist['list'][i] 
 			thelist['unavail'] += 1
 			n = n - 1
@@ -116,7 +117,6 @@ def prune_list(thelist):
 		else :
 			seen.add(thelist['list'][i]['vid']) 
 			i += 1  
-			
 	return 
  
 def load_list(uid,uid_type): 
