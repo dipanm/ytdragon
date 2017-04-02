@@ -251,7 +251,6 @@ def download_video(vid_item,folder):
 	logr = setup_vid_logger(vid) 
 
 	if vid_item.has_key('vmeta'):   
-		print "Meta already downloaded.. not fetching again" 
 		vidmeta = vid_item['vmeta'] 
 	else: 
 		try:
@@ -369,9 +368,7 @@ if (uid_type == "video"):
 	download_video(vid_item,folder) 
 
 elif( (uid_type == "ytlist") or (uid_type == "playlist")):  
-	logm.info("Extracting %s [%s]",uid_type,uid) 
 	uid_list = load_list(uid,uid_type)
-	print_list_stats(uid_list) 
 	download_list(uid_list,folder) 
 		
 else:

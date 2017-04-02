@@ -122,7 +122,6 @@ if(uid_type != "playlist" and uid_type != "ytlist" ):
 	exit(2) 
 
 plist = load_list(plid,uid_type) 
-print_list_stats(plist) 
 
 if(outfile == ""): 
 	outfile = clean_up_title(plist['title'])+".yl"

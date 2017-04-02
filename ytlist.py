@@ -143,6 +143,7 @@ def load_list(uid,uid_type):
 	else : 
 		thelist['list'] = load_meta_info_parallel(thelist['list']) 
 
+	print_list_stats(thelist)
 	return thelist 
  
 #-------------------------------------------------------------------------------
