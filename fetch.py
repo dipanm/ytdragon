@@ -298,28 +298,6 @@ def download_list(download_list,folder) :
 		i += 1
 	return
 
-def read_list(listfile):
-	i=0
-	url_list = list() 
-	lf  = open(listfile, "r")
-	v = 0
-	for line in lf:
-		if line.strip():
-			vid = dict() 
-			l = line.rstrip().split("#",1) 
-			attrs = l[0].split('\t') 
-			attrs = [attr.strip() for attr in attrs if attr.strip()] 
-			id_str = attrs[0] if(len(attrs) > 0) else "" 
-			vid["comment"] = l[1].strip() if(len(l) > 1) else "" 
-			vid["status"], vid["uid_type"], vid["id"] = get_uid_from_ref(id_str) 
-			vid["attrs"] = attrs[1:] if (len(attrs)>0) else "" 
-			url_list.append(vid) 
-			v = v+1 if(vid['uid_type'] == "video") else v 
-				
-		i += 1 
-
-	return  url_list, v   
-
 #---------------------------------------------------------------
 # Support functions for Main 
 
