@@ -28,6 +28,9 @@ from ytpage import get_vid_from_url
 from ytpage import get_uid_from_ref 
 from ytpage import skip_codes  
 
+from ytlist import load_list 
+from ytlist import print_list_stats
+
 ### User Config Variable ----------------------------
 
 quite = False 
@@ -268,7 +271,6 @@ def download_video(vid,folder):
 		return 
 
 	print_pretty(logr,"Parsing successful: vid_meta "+"="*20,vidmeta) 
-
 	smap = vidmeta['stream_map']
 	sm = smap['std'] + smap['adp_v'] + smap['adp_a'] + smap['caption'] 
 	logr.debug("= Available Streams: "+"="*25+"\n"+"\n".join(map(smap_to_str,sm)))
@@ -284,26 +286,39 @@ def download_video(vid,folder):
 
 	return
 
-def download_list(url_list,folder) :
+def download_list(download_list,folder) :
+	global vid 
 	logm = logging.getLogger() 
 
+	i = 1
+	for item in download_list['list']:
+		logm.info("Download item %4d [%s]: %s",i,item['vid'],str(datetime.datetime.now()))
+		vid = item['vid']
+		download_video(item['vid'],folder) 
+		i += 1
+
+	'''
 	skip_status = list() 
 	for k,v in skip_codes.iteritems(): 
 		skip_status.append(v) 
 	
+	url_list = vid_list['list'] 
 	i = 1
 	for url in url_list:
 		#pprint.pprint(url) 
+		url['status'] = "OK" 
 		if( url['status'] == "OK"): 
-			vid = url['id']
-			logm.info("Download item %4d [%s]: %s",i,url['id'],str(datetime.datetime.now()))
-			download_video(url['id'],folder) 
+			global vid 
+			vid = url['vid']
+			logm.info("Download item %4d [%s]: %s",i,url['vid'],str(datetime.datetime.now()))
+			download_video(url['vid'],folder) 
 			i += 1
 		elif ((url['status'] != "COMMENT") and (url['status'] in skip_status)) : 
 			logm.info("Download item %4d [%s]: %s\n\t%s",i,url['id'],url['status'],"|".join(url['attrs']) ) 
 			i += 1
 		else :
 			logm.info("#%s",url['comment'])
+	'''
 	return
 
 def read_list(listfile):
@@ -380,22 +395,28 @@ logm = setup_main_logger()
 
 (folder, uidref) = parse_arguments(sys.argv[1:]) 
 
-status, id_type, vid = get_uid_from_ref(uidref)
+status, uid_type, uid = get_uid_from_ref(uidref)
 
-if(id_type == "ytlist"): 
-	url_list, count  = read_list(vid) 
-	logm.info("Downloading %d videos from list %s",count,vid) 
-	download_list(url_list,folder) 
+if(status != "OK") : 
+	logm.info("Skipping uid %s: Status %s",uid,status) 
+	exit(); 
 
-elif (id_type == "video"):
-	if(status == "OK") : 
-		logm.info("Downloading video: [%s]",vid) 
-		download_video(vid,folder) 
-	else : 
-		logm.info("Skipping vid %s: Status %s",vid,status) 
+if (uid_type == "video"):
+	logm.info("Downloading video: [%s]",uid) 
+	vid = uid 
+	download_video(vid,folder) 
+
+elif( (uid_type == "ytlist") or (uid_type == "playlist")):  
+	logm.info("Extracting %s [%s]",uid_type,uid) 
+	uid_list = load_list(uid,uid_type)
+	print_list_stats(uid_list) 
+	#pprint.pprint(uid_list)
+	#url_list, count  = read_list(uid) 
+	download_list(uid_list,folder) 
+		
 else:
 	logm.info("Type currently not supported. or Error in id_reference") 
-	logm.info("Status {} id_type {} uid {}".format(status, id_type, vid)) 
+	logm.info("Status {} id_type {} uid {}".format(status, uid_type, uid)) 
 
 logm.info("Good bye... Enjoy the video!") 
 
