@@ -296,29 +296,6 @@ def download_list(download_list,folder) :
 		vid = item['vid']
 		download_video(item['vid'],folder) 
 		i += 1
-
-	'''
-	skip_status = list() 
-	for k,v in skip_codes.iteritems(): 
-		skip_status.append(v) 
-	
-	url_list = vid_list['list'] 
-	i = 1
-	for url in url_list:
-		#pprint.pprint(url) 
-		url['status'] = "OK" 
-		if( url['status'] == "OK"): 
-			global vid 
-			vid = url['vid']
-			logm.info("Download item %4d [%s]: %s",i,url['vid'],str(datetime.datetime.now()))
-			download_video(url['vid'],folder) 
-			i += 1
-		elif ((url['status'] != "COMMENT") and (url['status'] in skip_status)) : 
-			logm.info("Download item %4d [%s]: %s\n\t%s",i,url['id'],url['status'],"|".join(url['attrs']) ) 
-			i += 1
-		else :
-			logm.info("#%s",url['comment'])
-	'''
 	return
 
 def read_list(listfile):
@@ -352,8 +329,10 @@ def parse_arguments(argv):
 	usage_str += " Download Reference can be defined as below \n"
 	usage_str += "  It can be direct URL such as http://www.youtube.com/watch?v=<vid> \n"
 	usage_str += "  or just v=<vid> or vid=<vid> or video=<vid> \n"
-	usage_str += " Simialarly, to download full yt list type l=<ytlist_file.yl> or yl=<ytlist_file.yl> or ytlist=<ytlist_file.yl>\n"
-	usage_str += "  Remember no spaces before or after '=' \n" 
+	usage_str += " Youtube Playlists and YT Lists can be directly downloaded from here with following download_refs \n"
+	usage_str += " YT List downlad ref: l=<ytlist_file.yl> or yl=<ytlist_file.yl> or ytlist=<ytlist_file.yl>\n"
+	usage_str += " Playlist download ref: playlist_url  p=<plid> or pl=<plid> or playlist=<plid>\n"
+	usage_str += " Remember no spaces before or after '=' \n" 
 	usage_str += " Currently channel and playlist are not supported to be fetched directly so use 'extract' for the same"
 
 	folder = ""
@@ -410,8 +389,6 @@ elif( (uid_type == "ytlist") or (uid_type == "playlist")):
 	logm.info("Extracting %s [%s]",uid_type,uid) 
 	uid_list = load_list(uid,uid_type)
 	print_list_stats(uid_list) 
-	#pprint.pprint(uid_list)
-	#url_list, count  = read_list(uid) 
 	download_list(uid_list,folder) 
 		
 else:
