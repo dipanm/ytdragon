@@ -1,0 +1,6 @@
+
+# dependencies
+pip install certifi
+pip install lxml
+pip install requests
+pip install urllib3
