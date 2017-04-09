@@ -28,6 +28,7 @@ from ytpage import get_vid_from_url
 from ytpage import get_uid_from_ref 
 from ytpage import skip_codes  
 
+from ytmeta import create_default_vid_meta
 from ytlist import load_list 
 from ytlist import print_list_stats
 
