@@ -368,7 +368,7 @@ if (uid_type == "video"):
 	vid_item = create_default_vid_meta(uid)  
 	download_video(vid_item,folder) 
 
-elif( (uid_type == "ytlist") or (uid_type == "playlist")):  
+elif( (uid_type == "ytlist") or (uid_type == "playlist") or (uid_type == "channel") ):  
 	uid_list = load_list(uid,uid_type)
 	download_list(uid_list,folder) 
 		
