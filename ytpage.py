@@ -22,7 +22,7 @@ url_map = { 	"UNKNOWN" : "",
 		"video"   : "/watch?v=<ID>", 
 		"playlist": "/playlist?list=<ID>", 
 		"user"    : "/user/<ID>/videos"	,
-		"channel" : "/channel/<ID>"	} 
+		"channel" : "/channel/<ID>/videos"	} 
 
 def extract_id_q(parsed_url,query): 
 	qdict = urlparse.parse_qs(parsed_url.query)
