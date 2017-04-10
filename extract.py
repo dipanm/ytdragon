@@ -113,21 +113,25 @@ def parse_arguments(argv):
 
 logm = setup_main_logger() 
 
-plref, outfile = parse_arguments(sys.argv[1:]) 
+ext_ref, outfile = parse_arguments(sys.argv[1:]) 
 
-status, uid_type, plid = get_uid_from_ref(plref) 
+status, uid_type, uid = get_uid_from_ref(ext_ref) 
 
-#if(uid_type != "playlist" and uid_type != "ytlist" ): 
-#	print "Currently this program only supports 'playlist'. {} is not supported".format(uid_type) 
-#	exit(2) 
+if(status != "OK"): 
+	print "Unable to decipher type of request! Ref:{} Status:{} Err:{}".format(ext_ref,status,uid_type) 
+	exit(2) 
 
-plist = load_list(plid,uid_type) 
+if(uid_type == "user"): 
+	print "Currently this program is not ready to extract users. {} is not supported. Will get you soon!".format(uid_type) 
+	exit(3) 
+
+ext_list = load_list(uid,uid_type) 
 
 if(outfile == ""): 
-	outfile = clean_up_title(plist['title'])+".yl"
-	print "outfile not supplied. Playlist will be saved in: \"{}\" ".format(outfile) 
+	outfile = clean_up_title(ext_list['title'])+".yl"
+	print "Outfile not supplied. List will be saved in: \"{}\" ".format(outfile) 
 try: 
-	save_list(plist,outfile)
+	save_list(ext_list,outfile)
 except (IOError, ValueError) as err: 
-	print "Can't save playlist %s:".format(outfile) 
+	print "Can't save list %s:".format(outfile) 
 
