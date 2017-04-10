@@ -131,8 +131,11 @@ def load_list(uid,uid_type):
 		thelist['title'] = uid.rsplit("/",1)[-1] 
 		thelist['owner'] = "ytdragon" 
 		ytlist_extract(ytlines,thelist)
+	elif (uid_type == "channel"): 
+		ch_page = get_page(uid_type,uid) 
+		channel_extract(ch_page['contents'],thelist)
 	else: 
-		pl_page = get_page("playlist",uid) 
+		pl_page = get_page(uid_type,uid) 
 		playlist_extract(pl_page['contents'],thelist)
 	
 	prune_list(thelist)
@@ -303,6 +306,92 @@ def playlist_extract(pl_page,thelist):
 	thelist['list'] = plist
 
 	return
+
+#-------------------------------------------------------------------------------
+# funcitons specific to type "Channel and User"
+
+def channel_load_more_ajax(url):
+	logr = logging.getLogger() 
+
+	logr.debug("Getting the page: %s",url) 
+
+	response = urllib.urlopen(url)
+	code = response.getcode() 
+	if(code != 200):
+		logm.critical("Error fetching ajax response") 
+		return { 'error' : -1} 
+
+	data = json.load(response) 
+
+	list_content = html.fromstring(data['content_html'])	# 'Content_html' is part of Ajax response. But we must check 
+	if(len(data['load_more_widget_html'])>0): 
+		lm_widget = html.fromstring(data['load_more_widget_html']) 
+	else: 
+		lm_widget = None 
+
+	return { 'error' : 0, 'list_content': list_content, 'lm_widget': lm_widget} 
+
+
+def channel_parse(list_content,last=0):
+	plist = list() 
+	count = 1
+	tstr = '//li[@class="channels-content-item yt-shelf-grid-item"]'
+	i = last
+	for l in list_content.xpath(tstr):
+		vid   = list_content.xpath(tstr+"["+str(count)+"]/div/@data-context-item-id")[0] 
+		title = clean_up_title(list_content.xpath(tstr+"["+str(count)+"]//a/@title")[0])
+		t = 	list_content.xpath(tstr+"["+str(count)+"]//span[@class='video-time']/span/text()")
+		time = t[0]  if (t) else "00:00" 
+		i = i+1 
+		plitem = create_default_vid_meta(vid,title)  
+		plitem['index'] = i
+		plitem['duration'] = str(time)  
+		plist.append(plitem) 
+		count += 1; 
+
+	return plist 
+
+def channel_parse_lmwidget(lmore): 
+	lmurl = ""
+	if(lmore == None): 
+		return lmurl 
+
+	lmurlobj = lmore.xpath('//button[@data-uix-load-more-target-id="channels-browse-content-grid"]/@data-uix-load-more-href')
+	if(len(lmurlobj) > 0): 
+		lmurl = youtube+lmurlobj[0] 
+	return lmurl 
+
+
+def channel_extract(ch_page,thelist): 
+
+	title_xpath = '//span[@class="qualified-channel-title-text"]/a/text()'
+	#owner_xpath = '//h1[@class="branded-page-header-title"]/span/span/span/a/text()'
+
+	tree = html.fromstring(ch_page)
+
+	t = tree.xpath(title_xpath)
+	thelist['title'] = clean_up_title(t[0]) if (len(t) > 0) else "unknown channel" 
+	thelist['owner'] = thelist['title'] 	# channel / user has no seperation from title and owner 
+		
+	plist = channel_parse(tree)
+	lmurl = channel_parse_lmwidget(tree) 
+	
+	count = 1
+	while (len(lmurl)>0): 
+		#print "Loading next ... "+lmurl 
+		ajax_resp = channel_load_more_ajax(lmurl) 
+		if(ajax_resp['error'] <0 ): 
+			print "Error extracting load more... returning the list" 
+			break
+		pl = channel_parse(ajax_resp['list_content'],len(plist))
+		plist.extend(pl)
+		lmurl = channel_parse_lmwidget(ajax_resp['lm_widget']) 
+		count += 1
+
+	thelist['list'] = plist
+
+	return
+
 
 ## -------------- function to parse ytlist ------------------------
 

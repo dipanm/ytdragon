@@ -117,9 +117,9 @@ plref, outfile = parse_arguments(sys.argv[1:])
 
 status, uid_type, plid = get_uid_from_ref(plref) 
 
-if(uid_type != "playlist" and uid_type != "ytlist" ): 
-	print "Currently this program only supports 'playlist'. {} is not supported".format(uid_type) 
-	exit(2) 
+#if(uid_type != "playlist" and uid_type != "ytlist" ): 
+#	print "Currently this program only supports 'playlist'. {} is not supported".format(uid_type) 
+#	exit(2) 
 
 plist = load_list(plid,uid_type) 
 
