@@ -13,6 +13,7 @@ def clean_up_title(title):
 	title = title.replace('\n','').strip() 
 	title = removeNonAscii(title) 
 
+	title = title.encode("ascii","ignore") 
 	printable = set(string.printable)
 	title = filter(lambda x: x in printable, title)
 
