@@ -36,7 +36,6 @@ from ytmeta  import ytd_exception_meta
 from ytmeta  import create_default_vid_meta
 from ytpage  import get_page
 from ytpage  import get_uid_from_ref
-from ytpage  import get_vid_from_url
 
 ### User Config Variable ----------------------------
 
@@ -416,8 +415,7 @@ def ytlist_extract(ytlines,thelist):
 			uidref = details[0] 
 			attrs = details[1].split("\t") if (len(details) > 0) else list() 
 
-			status, uid  = get_vid_from_url(uidref) 
-			#status, uid_type, uid = get_uid_from_ref(uidref) 
+			status, uid_type, uid = get_uid_from_ref(uidref) 
 			
 			#if(uid_type != "video"): 
 			#	print "only video type is supported!" 

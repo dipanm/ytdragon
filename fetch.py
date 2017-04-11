@@ -24,7 +24,6 @@ from ytutils import print_pretty
 from ytmeta import smap_to_str
 from ytmeta import load_video_meta
 from ytmeta import ytd_exception_meta
-from ytpage import get_vid_from_url 
 from ytpage import get_uid_from_ref 
 from ytpage import skip_codes  
 
