@@ -58,6 +58,7 @@ unavail_list = { "[deleted video]", "[private video]" }
 def print_list_header(thelist): 
 	print "# "+thelist['list_type']+": "+thelist['list_id']	
 	print "# Title: "    +thelist['title']
+	print "# URL: "      +thelist['url']
 	print "# Owner: "    +thelist['owner']
 	print "# Total: "    +str(thelist['total']) 
 
@@ -86,6 +87,7 @@ def save_list(thelist,filename):
 
 	fp.write("# "+thelist['list_type']+": "+thelist['list_id']+"\n") 
 	fp.write("# Title: "+thelist['title']+"\n") 
+	fp.write("# URL: "  +thelist['url']+"\n") 
 	fp.write("# Owner: "+thelist['owner']+"\n") 
 	#fp.write("# URL: "+youtube+"/playlist?=list="+playlist['plid']+"\n") # This needs to change to take care of any type of URL! 
 	fp.write("# Item count: Total="+str(thelist['total'])+" Available ="+str(len(plist))+" Deleted="+str(thelist['unavail'])+" Duplicate="+str(thelist['duplicate'])+"\n")
@@ -124,8 +126,8 @@ def load_list(uid,uid_type):
 	load_function = { "ytlist": ytlist_extract, "channel": channel_extract, "playlist": playlist_extract } 
 
 	# --------------- 
-	thelist = { 'list_id': uid, 'list_type' : uid_type } 
 	page = get_page(uid_type,uid) 
+	thelist = { 'list_id': uid, 'list_type' : uid_type, 'url' : page['url'] } 
 	
 	if( load_function.has_key(uid_type) ): 
 		load_function[uid_type](page,thelist) 
