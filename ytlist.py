@@ -204,8 +204,8 @@ def load_meta(v) :
 	v['max_res'] = str(vmeta['max_res']) 
 	v['author']  = vmeta['author'] 
 	
-	dur = v['duration'] if v.has_key('duration') else "--:--" 
-	#print "vid:"+v['vid']+" max_res="+v['max_res']+" Dur:"+dur+"\n"
+	v['duration'] = vmeta['duration'] if vmeta.has_key('duration') else "--:--" 
+	#print "@@>","vid:"+v['vid']+" max_res="+v['max_res']+" Dur:"+v['duration']+"\n"
 	flags = "V" if vmeta['type'] == "video" else "A"
 	flags = flags + "-$" if (vmeta['paid'] == True) else flags  
 	flags = flags + "-x" if (vmeta['isFamilyFriendly'] == True) else flags 
