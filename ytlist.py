@@ -126,10 +126,7 @@ def load_list(uid,uid_type):
 	# load page -- depending on type. only ytlist is different! TODO 
 	if ( uid_type == "ytlist" ): 
 		page = get_page(uid_type,uid) 
-		ytlines = page['contents'].split("\n")
-		thelist['title'] = uid.rsplit("/",1)[-1] 
-		thelist['owner'] = "ytdragon" 
-		ytlist_extract(ytlines,thelist)
+		ytlist_extract(page['contents'],thelist)
 	elif (uid_type == "channel"): 
 		ch_page = get_page(uid_type,uid) 
 		channel_extract(ch_page['contents'],thelist)
@@ -394,10 +391,15 @@ def channel_extract(ch_page,thelist):
 
 ## -------------- function to parse ytlist ------------------------
 
-def ytlist_extract(ytlines,thelist):
+def ytlist_extract(page_content,thelist):
 	i=0
 	url_list = list() 
 	pre_comment = "" 
+
+	ytlines = page_content.split("\n")
+	thelist['title'] = thelist['list_id'].rsplit("/",1)[-1] 
+	thelist['owner'] = "ytdragon" 
+
 	v = 0
 	for line in ytlines:
 		if line.strip():
