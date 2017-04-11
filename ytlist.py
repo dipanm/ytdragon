@@ -123,16 +123,14 @@ def load_list(uid,uid_type):
 
 	thelist = { 'list_id': uid, 'list_type' : uid_type } 
 
+	page = get_page(uid_type,uid) 
 	# load page -- depending on type. only ytlist is different! TODO 
 	if ( uid_type == "ytlist" ): 
-		page = get_page(uid_type,uid) 
-		ytlist_extract(page['contents'],thelist)
+		ytlist_extract(page,thelist)
 	elif (uid_type == "channel"): 
-		ch_page = get_page(uid_type,uid) 
-		channel_extract(ch_page['contents'],thelist)
+		channel_extract(page,thelist)
 	else: 
-		pl_page = get_page(uid_type,uid) 
-		playlist_extract(pl_page['contents'],thelist)
+		playlist_extract(page,thelist)
 	
 	prune_list(thelist)
 	print_list_header(thelist) 
@@ -273,12 +271,12 @@ def playlist_parse_lmwidget(lmore):
 	return lmurl 
 
 
-def playlist_extract(pl_page,thelist): 
+def playlist_extract(page,thelist): 
 
 	title_xpath = '//h1[@class="pl-header-title"]/text()'
 	owner_xpath = '//h1[@class="branded-page-header-title"]/span/span/span/a/text()'
 
-	tree = html.fromstring(pl_page)
+	tree = html.fromstring(page['contents']) 
 
 	t = tree.xpath(title_xpath)
 	thelist['title'] = clean_up_title(t[0]) if (len(t) > 0) else "no_name list" 
@@ -358,12 +356,12 @@ def channel_parse_lmwidget(lmore):
 	return lmurl 
 
 
-def channel_extract(ch_page,thelist): 
+def channel_extract(page,thelist): 
 
 	title_xpath = '//span[@class="qualified-channel-title-text"]/a/text()'
 	#owner_xpath = '//h1[@class="branded-page-header-title"]/span/span/span/a/text()'
 
-	tree = html.fromstring(ch_page)
+	tree = html.fromstring(page['contents']) 
 
 	t = tree.xpath(title_xpath)
 	thelist['title'] = clean_up_title(t[0]) if (len(t) > 0) else "unknown channel" 
@@ -391,12 +389,12 @@ def channel_extract(ch_page,thelist):
 
 ## -------------- function to parse ytlist ------------------------
 
-def ytlist_extract(page_content,thelist):
+def ytlist_extract(page,thelist):
 	i=0
 	url_list = list() 
 	pre_comment = "" 
 
-	ytlines = page_content.split("\n")
+	ytlines = page['contents'].split("\n")
 	thelist['title'] = thelist['list_id'].rsplit("/",1)[-1] 
 	thelist['owner'] = "ytdragon" 
 
