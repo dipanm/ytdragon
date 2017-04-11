@@ -125,8 +125,8 @@ def load_list(uid,uid_type):
 
 	# load page -- depending on type. only ytlist is different! TODO 
 	if ( uid_type == "ytlist" ): 
-		lf  = open(uid, "r")
-		ytlines = lf.readlines() 
+		page = get_page(uid_type,uid) 
+		ytlines = page['contents'].split("\n")
 		thelist['title'] = uid.rsplit("/",1)[-1] 
 		thelist['owner'] = "ytdragon" 
 		ytlist_extract(ytlines,thelist)

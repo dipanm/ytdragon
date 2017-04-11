@@ -1,5 +1,6 @@
 #!/usr/bin/python -u 
 
+import os 
 import logging
 import string
 import re
@@ -19,6 +20,7 @@ uidtype_map = { "v"	: "video", 	"vid"	: "video",	"video"		: "video",
 	      	"l" 	: "ytlist", 	"yl"	: "ytlist", 	"ytlist"	: "ytlist" } 
 
 url_map = { 	"UNKNOWN" : "", 
+		"ytlist"  : "file://<ID>",
 		"video"   : "/watch?v=<ID>", 
 		"playlist": "/playlist?list=<ID>", 
 		"user"    : "/user/<ID>/videos"	,
@@ -105,7 +107,10 @@ def get_page(pagetype,uid):
 
 	page = { 'code' : -1, 'contents' : ""} 
 
-	url = default_hurl+url_map[pagetype].replace("<ID>",uid) 
+	if(pagetype == "ytlist"):
+		url = "file://"+os.path.abspath(uid)
+	else:
+		url = default_hurl+url_map[pagetype].replace("<ID>",uid) 
 
 	response = urllib.urlopen(url)
 	page['url'] = url
