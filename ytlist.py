@@ -205,7 +205,7 @@ def load_meta(v) :
 
 	v['max_res'] = str(vmeta['max_res']) 
 	v['author']  = vmeta['author']
-	v['title']   = vmeta['title'] if vmeta.has_key('title') else "<no_title>" 
+	v['title']   = clean_up_title(vmeta['title']) if vmeta.has_key('title') else "<no_title>" 
 	v['duration'] = vmeta['duration'] if vmeta.has_key('duration') else "--:--" 
 	#print "@@>","vid:"+v['vid']+" max_res="+v['max_res']+" Dur:"+v['duration']+"\n"
 	flags = "V" if vmeta['type'] == "video" else "A"
