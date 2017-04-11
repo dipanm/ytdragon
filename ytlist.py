@@ -413,7 +413,7 @@ def ytlist_extract(ytlines,thelist):
 				details = l[0].split('\t',1) 
 
 			uidref = details[0] 
-			attrs = details[1].split("\t") if (len(details) > 0) else list() 
+			attrs = details[1].split("\t") if (len(details) > 1) else list() 
 
 			status, uid_type, uid = get_uid_from_ref(uidref) 
 			
