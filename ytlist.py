@@ -121,17 +121,17 @@ def prune_list(thelist):
  
 def load_list(uid,uid_type): 
 
-	thelist = { 'list_id': uid, 'list_type' : uid_type } 
+	load_function = { "ytlist": ytlist_extract, "channel": channel_extract, "playlist": playlist_extract } 
 
+	# --------------- 
+	thelist = { 'list_id': uid, 'list_type' : uid_type } 
 	page = get_page(uid_type,uid) 
-	# load page -- depending on type. only ytlist is different! TODO 
-	if ( uid_type == "ytlist" ): 
-		ytlist_extract(page,thelist)
-	elif (uid_type == "channel"): 
-		channel_extract(page,thelist)
-	else: 
-		playlist_extract(page,thelist)
 	
+	if( load_function.has_key(uid_type) ): 
+		load_function[uid_type](page,thelist) 
+	else:
+		print "Currently uid_type { } is not supported".format(uid_type) 
+
 	prune_list(thelist)
 	print_list_header(thelist) 
 
