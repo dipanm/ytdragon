@@ -422,6 +422,7 @@ def ytlist_extract(ytlines,thelist):
 			#	pre_comment = pre_comment + "#" + line 
 			#	continue 
 			
+			vid = create_default_vid_meta(uid) 
 			vid['status']   = status
 			#vid['uid_type'] = uid_type
 			vid['vid']      = uid 

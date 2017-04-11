@@ -39,6 +39,7 @@ def create_default_vid_meta(vid="",title=""): 	# This are default must have valu
 	v['max_res']  = ""
 	v['filesize'] = 0 
 	v['flags']    = ""
+	v['duration'] = "--:--"
 
 	return v 
 
