@@ -124,18 +124,20 @@ def prune_list(thelist):
 #-------------------------------------------------------------------------------
 def load_list(uid,uid_type): 
 
-	load_function = { "ytlist": ytlist_extract, "playlist": playlist_extract, 
-			  "channel": playlist_extract, "user" : playlist_extract }  	# channel is same thing as user
+	supported = [ "ytlist", "playlist", "channel", "user" ] 
+	
+	if uid_type not in supported  : 
+		print "Error: unknown uid_type {} not supported".format(uid_type) 
+		return { 'list_id': uid, 'list_type' : uid_type, 'url' : "" }  
 
 	# --------------- 
 	page = get_page(uid_type,uid) 
 	thelist = { 'list_id': uid, 'list_type' : uid_type, 'url' : page['url'] } 
 	
-	if( load_function.has_key(uid_type) ): 
-		load_function[uid_type](page,thelist) 
-	else:
-		print "Error: unknown uid_type '{ }' not supported".format(uid_type) 
-		return thelist 
+	if( uid_type == "ytlist"): 
+		ytlist_extract(page,thelist) 
+	else: 
+		youtube_list_extract(page,thelist) 
 
 	prune_list(thelist)
 	print_list_header(thelist) 
@@ -311,7 +313,7 @@ def list_parse(list_content,uid_type,last=0):
 #-------------------------------------------------------------------------------
 # funcitons specific to type "Playlist" 
 
-def playlist_extract(page,thelist): 
+def youtube_list_extract(page,thelist): 
 
 	xpath_master = { "playlist" : {  'title' : '//h1[@class="pl-header-title"]/text()' ,
 	   	   			 'owner' : '//h1[@class="branded-page-header-title"]/span/span/span/a/text()' }, 
