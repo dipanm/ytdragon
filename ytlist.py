@@ -266,44 +266,63 @@ def parse_lmwidget(lmore,uid_type):
 		lmurl = youtube+lmurlobj[0] 
 	return lmurl 
 
+def list_parse(list_content,uid_type,last=0):
 
-#-------------------------------------------------------------------------------
-# funcitons specific to type "Playlist" 
+	xpath_master = { 
+		   'playlist' :
+		  { "box"   : '//table[@id="pl-video-table"]/tbody/tr',
+		    "vid"   : ".//@data-video-id",
+		    "title" : "./@data-title",
+		    "time"  : "./td[@class='pl-video-time']/div/div[@class='timestamp']/span/text()" },
+		   'channel' : 
+		  { "box"   : '//li[@class="channels-content-item yt-shelf-grid-item"]',
+		    "vid"   : "./div/@data-context-item-id",
+		    "title" : ".//a/@title",
+		    "time"  : ".//span[@class='video-time']/span/text()" },
+		   'user' : 
+		  { "box"   : '//li[@class="channels-content-item yt-shelf-grid-item"]',
+		    "vid"   : "./div/@data-context-item-id",
+		    "title" : ".//a/@title",
+		    "time"  : ".//span[@class='video-time']/span/text()" } 
+		}
 
-def playlist_parse(list_content,last=0):
+	
 	plist = list() 
 	if list_content is None:
 		return plist;
-	count = 1
-	tstr = '//table[@id="pl-video-table"]/tbody/tr'
+	
+	xpath = xpath_master[uid_type] 
 	i = last
-	for l in list_content.xpath(tstr):
-		vid   = list_content.xpath(tstr+"["+str(count)+"]/@data-video-id")[0] 
-		title = clean_up_title(list_content.xpath(tstr+"["+str(count)+"]/@data-title")[0]) 
-		t     = list_content.xpath(tstr+"["+str(count)+"]/td[@class='pl-video-time']/div/div[@class='timestamp']/span/text()")
+	for l in list_content.xpath(xpath['box']):
+		vid   = l.xpath(xpath['vid'])[0]
+		title = clean_up_title(l.xpath(xpath['title'])[0]) 
+		t     = l.xpath(xpath['time']) 
 		time = t[0]  if (t) else "00:00" 
 		i = i+1 
 		plitem = create_default_vid_meta(vid,title)  
 		plitem['index'] = i
 		plitem['duration'] = str(time)  
 		plist.append(plitem) 
-		count += 1; 
 
 	return plist 
 	
+#-------------------------------------------------------------------------------
+# funcitons specific to type "Playlist" 
+
 def playlist_extract(page,thelist): 
 
 	title_xpath = '//h1[@class="pl-header-title"]/text()'
 	owner_xpath = '//h1[@class="branded-page-header-title"]/span/span/span/a/text()'
 
+	uid_type = thelist["list_type"]
 	tree = html.fromstring(page['contents']) 
 
 	t = tree.xpath(title_xpath)
 	thelist['title'] = clean_up_title(t[0]) if (len(t) > 0) else "no_name list" 
 	thelist['owner'] = tree.xpath(owner_xpath)[0]
 		
-	plist = playlist_parse(tree) 
-	lmurl = parse_lmwidget(tree,thelist["list_type"])  
+	plist = list_parse(tree,uid_type) 
+	lmurl = parse_lmwidget(tree,uid_type)  
 	
 	count = 1
 	while (len(lmurl)>0): 
@@ -312,9 +331,9 @@ def playlist_extract(page,thelist):
 		if(ajax_resp['error'] <0 ): 
 			print "Error extracting load more... returning the list" 
 			break
-		pl = playlist_parse(ajax_resp['list_content'],len(plist))
+		pl = list_parse(ajax_resp['list_content'],uid_type,len(plist))
 		plist.extend(pl)
-		lmurl = parse_lmwidget(ajax_resp['lm_widget'],thelist["list_type"]) 
+		lmurl = parse_lmwidget(ajax_resp['lm_widget'],uid_type) 
 		count += 1
 	
 	thelist['list'] = plist
@@ -350,13 +369,14 @@ def channel_extract(page,thelist):
 	title_xpath = '//span[@class="qualified-channel-title-text"]/a/text()'
 	#owner_xpath = '//h1[@class="branded-page-header-title"]/span/span/span/a/text()'
 
+	uid_type = thelist["list_type"]
 	tree = html.fromstring(page['contents']) 
 
 	t = tree.xpath(title_xpath)
 	thelist['title'] = clean_up_title(t[0]) if (len(t) > 0) else "unknown channel" 
 	thelist['owner'] = thelist['title'] 	# channel / user has no seperation from title and owner 
 		
-	plist = channel_parse(tree)
+	plist = list_parse(tree,uid_type)
 	lmurl = parse_lmwidget(tree,thelist['list_type']) 
 	
 	count = 1
@@ -366,7 +386,7 @@ def channel_extract(page,thelist):
 		if(ajax_resp['error'] <0 ): 
 			print "Error extracting load more... returning the list" 
 			break
-		pl = channel_parse(ajax_resp['list_content'],len(plist))
+		pl = list_parse(ajax_resp['list_content'],uid_type,len(plist))
 		plist.extend(pl)
 		lmurl = parse_lmwidget(ajax_resp['lm_widget'],thelist['list_type']) 
 		count += 1
