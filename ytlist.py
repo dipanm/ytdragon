@@ -223,6 +223,8 @@ def load_meta(v) :
 	
 
 #-------------------------------------------------------------------------------
+# Functions that parse standard lists : i.e. Playlist, User, Channel 
+
 def load_more_ajax(url,uid_type):
 	logr = logging.getLogger() 
 
@@ -343,27 +345,6 @@ def playlist_extract(page,thelist):
 #-------------------------------------------------------------------------------
 # funcitons specific to type "Channel and User"
 
-def channel_parse(list_content,last=0):
-	plist = list() 
-	if list_content is None:
-		return plist;
-	count = 1
-	tstr = '//li[@class="channels-content-item yt-shelf-grid-item"]'
-	i = last
-	for l in list_content.xpath(tstr):
-		vid   = list_content.xpath(tstr+"["+str(count)+"]/div/@data-context-item-id")[0] 
-		title = clean_up_title(list_content.xpath(tstr+"["+str(count)+"]//a/@title")[0])
-		t = 	list_content.xpath(tstr+"["+str(count)+"]//span[@class='video-time']/span/text()")
-		time = t[0]  if (t) else "00:00" 
-		i = i+1 
-		plitem = create_default_vid_meta(vid,title)  
-		plitem['index'] = i
-		plitem['duration'] = str(time)  
-		plist.append(plitem) 
-		count += 1; 
-
-	return plist 
-
 def channel_extract(page,thelist): 
 
 	title_xpath = '//span[@class="qualified-channel-title-text"]/a/text()'
@@ -394,7 +375,6 @@ def channel_extract(page,thelist):
 	thelist['list'] = plist
 
 	return
-
 
 ## -------------- function to parse ytlist ------------------------
 
