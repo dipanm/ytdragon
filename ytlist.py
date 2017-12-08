@@ -76,9 +76,18 @@ def print_list(thelist):
 		print l['vid']+"\t"+l['max_res']+"\t"+l['title'] 
 
 	return 
+def longest_author_name(plist): 
+	length = 0
+	for l in plist:
+		if (length < len(l)):
+			length = len(l)
+	return len
 
 def save_list(thelist,filename): 
 	plist = thelist['list'] 
+
+	longest_auth = max(plist, key= lambda item: len(item['author'])) 
+	auth_len = len(longest_auth['author']) 
 
 	if(filename == ""): 
 		raise ValueError("filename can't be empty") 
@@ -93,7 +102,7 @@ def save_list(thelist,filename):
 	fp.write("# Item count: Total="+str(thelist['total'])+" Available ="+str(len(plist))+" Deleted="+str(thelist['unavail'])+" Duplicate="+str(thelist['duplicate'])+"\n")
 	fp.write("#-------------------------------------------------------\n")
 	for l in plist: 
-		fp.write("v="+l['vid']+"\t"+l['duration'].rjust(8)+"\t"+l['max_res'].rjust(10)+"\t"+l['flags'].rjust(3)+"\t"+l['author'].ljust(35)+"\t"+l['title']+"\n")
+		fp.write("v="+l['vid']+"\t"+l['duration'].rjust(8)+"\t"+l['max_res'].rjust(10)+"\t"+l['flags'].rjust(3)+"\t"+l['author'].ljust(auth_len)+"\t"+l['title']+"\n")
 	
 	fp.close() 
 	return 
