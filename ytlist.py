@@ -221,10 +221,9 @@ def load_meta(v) :
 	status_update(v['index'],v['vid'],v['title']) 
 	return v 
 	
-#-------------------------------------------------------------------------------
-# funcitons specific to type "Playlist" 
 
-def playlist_load_more_ajax(url):
+#-------------------------------------------------------------------------------
+def load_more_ajax(url,uid_type):
 	logr = logging.getLogger() 
 
 	logr.debug("Getting the page: %s",url) 
@@ -236,7 +235,8 @@ def playlist_load_more_ajax(url):
 		return { 'error' : -1} 
 
 	data = json.load(response) 
-	data['content_html'] = "<table id='pl-video-table'><tbody>"+data['content_html']+"</tbody></table>"
+	if(uid_type == "playlist"): 
+		data['content_html'] = "<table id='pl-video-table'><tbody>"+data['content_html']+"</tbody></table>"
 
 	list_content = html.fromstring(data['content_html'])
 	if(len(data['load_more_widget_html'])>0): 
@@ -246,14 +246,34 @@ def playlist_load_more_ajax(url):
 
 	return { 'error' : 0, 'list_content': list_content, 'lm_widget': lm_widget} 
 
+def parse_lmwidget(lmore,uid_type): 
+
+	lmw_xpath = { "playlist": '//button[@data-uix-load-more-target-id="pl-load-more-destination"]/@data-uix-load-more-href', 
+		      "channel" : '//button[@data-uix-load-more-target-id="channels-browse-content-grid"]/@data-uix-load-more-href',
+		      "user"	: '//button[@data-uix-load-more-target-id="channels-browse-content-grid"]/@data-uix-load-more-href'
+		    }
+
+	lmurl = ""
+	if(lmore == None): 
+		return lmurl 
+
+	lmurlobj = lmore.xpath(lmw_xpath[uid_type])
+	if(len(lmurlobj) > 0): 
+		lmurl = youtube+lmurlobj[0] 
+	return lmurl 
+
+
+#-------------------------------------------------------------------------------
+# funcitons specific to type "Playlist" 
+
 def playlist_parse(list_content,last=0):
 	plist = list() 
 	count = 1
 	tstr = '//table[@id="pl-video-table"]/tbody/tr'
 	i = last
 	for l in list_content.xpath(tstr):
-		vid     = list_content.xpath(tstr+"["+str(count)+"]/@data-video-id")[0] 
-		title    = clean_up_title(list_content.xpath(tstr+"["+str(count)+"]/@data-title")[0]) 
+		vid   = list_content.xpath(tstr+"["+str(count)+"]/@data-video-id")[0] 
+		title = clean_up_title(list_content.xpath(tstr+"["+str(count)+"]/@data-title")[0]) 
 		t     = list_content.xpath(tstr+"["+str(count)+"]/td[@class='pl-video-time']/div/div[@class='timestamp']/span/text()")
 		time = t[0]  if (t) else "00:00" 
 		i = i+1 
@@ -265,17 +285,6 @@ def playlist_parse(list_content,last=0):
 
 	return plist 
 	
-def playlist_parse_lmwidget(lmore): 
-	lmurl = ""
-	if(lmore == None): 
-		return lmurl 
-
-	lmurlobj = lmore.xpath('//button[@data-uix-load-more-target-id="pl-load-more-destination"]/@data-uix-load-more-href')
-	if(len(lmurlobj) > 0): 
-		lmurl = youtube+lmurlobj[0] 
-	return lmurl 
-
-
 def playlist_extract(page,thelist): 
 
 	title_xpath = '//h1[@class="pl-header-title"]/text()'
@@ -288,18 +297,18 @@ def playlist_extract(page,thelist):
 	thelist['owner'] = tree.xpath(owner_xpath)[0]
 		
 	plist = playlist_parse(tree) 
-	lmurl = playlist_parse_lmwidget(tree) 
+	lmurl = parse_lmwidget(tree,thelist["list_type"])  
 	
 	count = 1
 	while (len(lmurl)>0): 
 		#print "Loading next ... "+lmurl 
-		ajax_resp = playlist_load_more_ajax(lmurl) 
+		ajax_resp = load_more_ajax(lmurl,thelist["list_type"]) 
 		if(ajax_resp['error'] <0 ): 
 			print "Error extracting load more... returning the list" 
 			break
 		pl = playlist_parse(ajax_resp['list_content'],len(plist))
 		plist.extend(pl)
-		lmurl = parse_lmwidget(ajax_resp['lm_widget']) 
+		lmurl = parse_lmwidget(ajax_resp['lm_widget'],thelist["list_type"]) 
 		count += 1
 	
 	thelist['list'] = plist
@@ -308,28 +317,6 @@ def playlist_extract(page,thelist):
 
 #-------------------------------------------------------------------------------
 # funcitons specific to type "Channel and User"
-
-def channel_load_more_ajax(url):
-	logr = logging.getLogger() 
-
-	logr.debug("Getting the page: %s",url) 
-
-	response = urllib.urlopen(url)
-	code = response.getcode() 
-	if(code != 200):
-		logm.critical("Error fetching ajax response") 
-		return { 'error' : -1} 
-
-	data = json.load(response) 
-
-	list_content = html.fromstring(data['content_html'])	# 'Content_html' is part of Ajax response. But we must check 
-	if(len(data['load_more_widget_html'])>0): 
-		lm_widget = html.fromstring(data['load_more_widget_html']) 
-	else: 
-		lm_widget = None 
-
-	return { 'error' : 0, 'list_content': list_content, 'lm_widget': lm_widget} 
-
 
 def channel_parse(list_content,last=0):
 	plist = list() 
@@ -350,17 +337,6 @@ def channel_parse(list_content,last=0):
 
 	return plist 
 
-def channel_parse_lmwidget(lmore): 
-	lmurl = ""
-	if(lmore == None): 
-		return lmurl 
-
-	lmurlobj = lmore.xpath('//button[@data-uix-load-more-target-id="channels-browse-content-grid"]/@data-uix-load-more-href')
-	if(len(lmurlobj) > 0): 
-		lmurl = youtube+lmurlobj[0] 
-	return lmurl 
-
-
 def channel_extract(page,thelist): 
 
 	title_xpath = '//span[@class="qualified-channel-title-text"]/a/text()'
@@ -373,18 +349,18 @@ def channel_extract(page,thelist):
 	thelist['owner'] = thelist['title'] 	# channel / user has no seperation from title and owner 
 		
 	plist = channel_parse(tree)
-	lmurl = channel_parse_lmwidget(tree) 
+	lmurl = parse_lmwidget(tree,thelist['list_type']) 
 	
 	count = 1
 	while (len(lmurl)>0): 
-		#print "Loading next ... "+lmurl 
-		ajax_resp = channel_load_more_ajax(lmurl) 
+		print "Loading next ... "+lmurl 
+		ajax_resp = load_more_ajax(lmurl,thelist['list_type']) 
 		if(ajax_resp['error'] <0 ): 
 			print "Error extracting load more... returning the list" 
 			break
 		pl = channel_parse(ajax_resp['list_content'],len(plist))
 		plist.extend(pl)
-		lmurl = channel_parse_lmwidget(ajax_resp['lm_widget']) 
+		lmurl = parse_lmwidget(ajax_resp['lm_widget'],thelist['list_type']) 
 		count += 1
 
 	thelist['list'] = plist
