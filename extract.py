@@ -121,10 +121,6 @@ if(status != "OK"):
 	print "Unable to decipher type of request! Ref:{} Status:{} Err:{}".format(ext_ref,status,uid_type) 
 	exit(2) 
 
-if(uid_type == "user"): 
-	print "Currently this program is not ready to extract users. {} is not supported. Will get you soon!".format(uid_type) 
-	exit(3) 
-
 ext_list = load_list(uid,uid_type) 
 
 if(outfile == ""): 
