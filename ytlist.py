@@ -235,6 +235,10 @@ def load_more_ajax(url,uid_type):
 		return { 'error' : -1} 
 
 	data = json.load(response) 
+	if not data.has_key('content_html') or (data['content_html'] == ""):
+		print "Load more button in error. skipping..."
+		return { 'error' : 1, 'list_content': None, 'lm_widget': None} 
+	
 	if(uid_type == "playlist"): 
 		data['content_html'] = "<table id='pl-video-table'><tbody>"+data['content_html']+"</tbody></table>"
 
@@ -268,6 +272,8 @@ def parse_lmwidget(lmore,uid_type):
 
 def playlist_parse(list_content,last=0):
 	plist = list() 
+	if list_content is None:
+		return plist;
 	count = 1
 	tstr = '//table[@id="pl-video-table"]/tbody/tr'
 	i = last
@@ -320,6 +326,8 @@ def playlist_extract(page,thelist):
 
 def channel_parse(list_content,last=0):
 	plist = list() 
+	if list_content is None:
+		return plist;
 	count = 1
 	tstr = '//li[@class="channels-content-item yt-shelf-grid-item"]'
 	i = last
@@ -353,7 +361,7 @@ def channel_extract(page,thelist):
 	
 	count = 1
 	while (len(lmurl)>0): 
-		print "Loading next ... "+lmurl 
+		#print "Loading next ... "+lmurl 
 		ajax_resp = load_more_ajax(lmurl,thelist['list_type']) 
 		if(ajax_resp['error'] <0 ): 
 			print "Error extracting load more... returning the list" 
