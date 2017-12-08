@@ -135,6 +135,7 @@ def load_list(uid,uid_type):
 		load_function[uid_type](page,thelist) 
 	else:
 		print "Error: unknown uid_type '{ }' not supported".format(uid_type) 
+		return thelist 
 
 	prune_list(thelist)
 	print_list_header(thelist) 
