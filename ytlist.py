@@ -127,7 +127,6 @@ def load_list(uid,uid_type):
 	supported = [ "ytlist", "playlist", "channel", "user" ] 
 	
 	if uid_type not in supported  : 
-		print "Error: unknown uid_type {} not supported".format(uid_type) 
 		return { 'list_id': uid, 'list_type' : uid_type, 'url' : "" }  
 
 	# --------------- 
