@@ -125,7 +125,7 @@ def prune_list(thelist):
 def load_list(uid,uid_type): 
 
 	load_function = { "ytlist": ytlist_extract, "playlist": playlist_extract, 
-			  "channel": channel_extract, "user" : channel_extract } 	# channel is same thing as user
+			  "channel": playlist_extract, "user" : playlist_extract }  	# channel is same thing as user
 
 	# --------------- 
 	page = get_page(uid_type,uid) 
@@ -313,10 +313,18 @@ def list_parse(list_content,uid_type,last=0):
 
 def playlist_extract(page,thelist): 
 
-	title_xpath = '//h1[@class="pl-header-title"]/text()'
-	owner_xpath = '//h1[@class="branded-page-header-title"]/span/span/span/a/text()'
-
+	xpath_master = { "playlist" : {  'title' : '//h1[@class="pl-header-title"]/text()' ,
+	   	   			 'owner' : '//h1[@class="branded-page-header-title"]/span/span/span/a/text()' }, 
+			  "channel" : {  'title' : '//span[@class="qualified-channel-title-text"]/a/text()',
+					 'owner' : '//span[@class="qualified-channel-title-text"]/a/text()'  }, 
+			  "user"    : {  'title' : '//span[@class="qualified-channel-title-text"]/a/text()',
+					 'owner' : '//span[@class="qualified-channel-title-text"]/a/text()'  }  } 
+	
 	uid_type = thelist["list_type"]
+
+	title_xpath = xpath_master[uid_type]['title'] 
+	owner_xpath = xpath_master[uid_type]['owner'] 
+	
 	tree = html.fromstring(page['contents']) 
 
 	t = tree.xpath(title_xpath)
@@ -338,40 +346,6 @@ def playlist_extract(page,thelist):
 		lmurl = parse_lmwidget(ajax_resp['lm_widget'],uid_type) 
 		count += 1
 	
-	thelist['list'] = plist
-
-	return
-
-#-------------------------------------------------------------------------------
-# funcitons specific to type "Channel and User"
-
-def channel_extract(page,thelist): 
-
-	title_xpath = '//span[@class="qualified-channel-title-text"]/a/text()'
-	#owner_xpath = '//h1[@class="branded-page-header-title"]/span/span/span/a/text()'
-
-	uid_type = thelist["list_type"]
-	tree = html.fromstring(page['contents']) 
-
-	t = tree.xpath(title_xpath)
-	thelist['title'] = clean_up_title(t[0]) if (len(t) > 0) else "unknown channel" 
-	thelist['owner'] = thelist['title'] 	# channel / user has no seperation from title and owner 
-		
-	plist = list_parse(tree,uid_type)
-	lmurl = parse_lmwidget(tree,thelist['list_type']) 
-	
-	count = 1
-	while (len(lmurl)>0): 
-		#print "Loading next ... "+lmurl 
-		ajax_resp = load_more_ajax(lmurl,thelist['list_type']) 
-		if(ajax_resp['error'] <0 ): 
-			print "Error extracting load more... returning the list" 
-			break
-		pl = list_parse(ajax_resp['list_content'],uid_type,len(plist))
-		plist.extend(pl)
-		lmurl = parse_lmwidget(ajax_resp['lm_widget'],thelist['list_type']) 
-		count += 1
-
 	thelist['list'] = plist
 
 	return
