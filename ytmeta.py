@@ -132,7 +132,8 @@ def parse_watch_page(wpage):
 		vid_meta['country']	= args['cr'] 	if(args.has_key('cr')) else ''
 		vid_meta['has_caption']	= True if vid_meta['caption_tracks'] != "" else False 
 		f = args['fmt_list'].split(',')
-		vid_meta['max_res'] 	= f[0].split('/')[1] if (f != None)  else 0 
+		r = f[0] if (len(f) > 0)  else ""
+		vid_meta['max_res'] 	= r.split('/')[1] if len(r) > 0 else "" 
 		vid_meta['filesize'] 	= 0 	# right now we don't know 
 		vid_meta['duration']	= str(int(args['length_seconds'])/60)+":"+str(int(args['length_seconds'])%60)
 	else :
