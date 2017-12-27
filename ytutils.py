@@ -13,7 +13,7 @@ def clean_up_title(title):
 	title = title.replace('\n','').strip() 
 	title = removeNonAscii(title) 
 
-	title = title.encode("ascii","ignore") 
+	#title = title.encode("ascii","ignore") 
 	printable = set(string.printable)
 	title = filter(lambda x: x in printable, title)
 
@@ -36,22 +36,22 @@ def print_pretty(logr,key,value,indent=0):
 			logr.debug(str(key))
 		else: 	
 			logr.debug('\t' * (indent-1) + "[" + str(key) +"]")
-   	   	for k, dval in value.iteritems():
+		for k, dval in value.items():
 			print_pretty(logr,k,dval, indent+1)
 	elif isinstance(value, list): 
 		if(indent == 0): 
                 	logr.debug(str(key))
 		else: 	
 			if (len(value) > 0) and ((isinstance(value[0], list) or isinstance(value[0], dict) )): 
-                         	logr.debug('\t' * (indent-1) + "[" + str(key) + "] :")
-				for i, lval in enumerate(value) : 
+				logr.debug('\t' * (indent-1) + "[" + str(key) + "] :")
+				for i, lval in enumerate(value):
  	 	       			print_pretty(logr,i,lval,indent+1) 
- 	 	       	else: 
- 	 	       		logr.debug('\t' * (indent-1) + "["+key+"] : ["+",".join(value)+"]") 
+			else: 
+				logr.debug('\t' * (indent-1) + "["+key+"] : ["+",".join(value)+"]") 
 	else:
 		if(indent == 0): 
-        		logr.debug(str(key)+"="+str(value)) 
+			logr.debug(str(key)+"="+str(value)) 
 		else:
-         		logr.debug('\t' * (indent-1) + "[" + str(key) + "] : " + str(value))
+			logr.debug('\t' * (indent-1) + "[" + str(key) + "] : " + str(value))
 
 

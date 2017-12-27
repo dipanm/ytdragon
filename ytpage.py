@@ -1,11 +1,11 @@
-#!/usr/bin/python -u 
+#!/usr/bin/python3 -u 
 
 import os 
 import logging
 import string
 import re
 import urllib
-import urlparse
+from urllib import parse as  urlparse
 import pprint 
 from lxml import html 
 
@@ -28,7 +28,7 @@ url_map = { 	"UNKNOWN" : "",
 
 def extract_id_q(parsed_url,query): 
 	qdict = urlparse.parse_qs(parsed_url.query)
-	plid = qdict[query][0] if qdict.has_key(query) else "UNKNOWN_ID" 
+	plid = qdict[query][0] if query in qdict else "UNKNOWN_ID" 
 	return plid 
 
 def extract_id_p(parsed_url,pkey): 
@@ -70,14 +70,14 @@ def get_uid_from_ref(uid_str):
 		if default_host not in h: 
 			uid_type = "UNKNOWN_HOST" 
 		else: 
-			if path_id_map.has_key(base_path) : 
+			if base_path in path_id_map: 
 				uid_type = path_id_map[base_path]["uid_type"] 
 				uid  = path_id_map[base_path]["extract_id"](parsed_url,path_id_map[base_path]["key_ref"]) 
 			else: 
 				uid_type = "UNKNOWN_PAGE" 
 	else:
 		ul = uid_str.split("=",1) 
-		uid_type = uidtype_map[ul[0]] if uidtype_map.has_key(ul[0]) else "UNKNOWN_TYPE"
+		uid_type = uidtype_map[ul[0]] if ul[0] in uidtype_map else "UNKNOWN_TYPE"
 		if len(ul) > 1 : 
 			uid = ul[1].split("/")[0] if (uid_type != "ytlist") else ul[1]
 		else: 
@@ -112,10 +112,10 @@ def get_page(pagetype,uid):
 	else:
 		url = default_hurl+url_map[pagetype].replace("<ID>",uid) 
 
-	response = urllib.urlopen(url)
+	response = urllib.request.urlopen(url)
 	page['url'] = url
 	page['code'] = response.getcode() 
-	page['contents'] = response.read()
+	page['contents'] = response.read().decode('utf-8') 
 	page['len']  = len(page['contents']) 
 
 	return page 

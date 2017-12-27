@@ -1,4 +1,4 @@
-#!/usr/bin/python -u 
+#!/usr/bin/python3 -u 
 
 #--------------------------------------------------------------------------------------------
 # Wish list 
@@ -10,7 +10,7 @@ import requests
 import json
 import pprint 
 import datetime
-import urlparse
+from urllib import parse as urlparse
 import os 
 import sys
 import socket 
@@ -18,7 +18,7 @@ import re
 import getopt
 import logging
 import subprocess
-import StringIO
+from io import StringIO
 import string
 import ssl 
 import urllib
@@ -28,7 +28,7 @@ import certifi
 import multiprocessing as mp 
 
 from xml.dom import minidom
-from HTMLParser import HTMLParser
+from html.parser import HTMLParser
 
 from ytutils import clean_up_title 
 from ytmeta    import load_video_meta
@@ -118,20 +118,20 @@ ext_ref, outfile = parse_arguments(sys.argv[1:])
 status, uid_type, uid = get_uid_from_ref(ext_ref) 
 
 if(status != "OK" or uid_type == "UNKNOWN_TYPE" ): 
-	print "Unable to decipher type of request! Ref:{} Status:{} Err:{}".format(ext_ref,status,uid_type) 
+	print("Unable to decipher type of request! Ref:{} Status:{} Err:{}".format(ext_ref,status,uid_type))
 	exit(2) 
 
 ext_list = load_list(uid,uid_type) 
 
-if not ext_list.has_key('list'):
-	print "Unable to extract list"
+if 'list' not in ext_list:
+	print("Unable to extract list")
 	exit(3)    
 
 if(outfile == ""): 
 	outfile = clean_up_title(ext_list['title'])+".yl"
-	print "Outfile not supplied. List will be saved in: \"{}\" ".format(outfile) 
+	print("Outfile not supplied. List will be saved in: \"{}\" ".format(outfile)) 
 try: 
 	save_list(ext_list,outfile)
 except (IOError, ValueError) as err: 
-	print "Can't save list %s:".format(outfile) 
+	print("Can't save list %s:".format(outfile))
 

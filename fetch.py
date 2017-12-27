@@ -1,4 +1,4 @@
-#!/usr/bin/python -u 
+#!/usr/bin/python3 -u 
 
 import pprint 
 import datetime
@@ -8,14 +8,14 @@ import socket
 import getopt
 import logging
 import subprocess
-import StringIO
+from io import StringIO
 import string
 import ssl 
 import urllib
 import certifi
 
 from xml.dom import minidom
-from HTMLParser import HTMLParser
+from html.parser import HTMLParser
 
 from ytutils import clean_up_title 
 from ytutils import write_to_file
@@ -85,7 +85,7 @@ def dlProgress(count, blockSize, totalSize):
 	logr = logging.getLogger(vid) 
 
 	counter_str = [ "|","/","-","\\"]
-	cstr = counter_str[(count/100)%4] 
+	cstr = counter_str[(int(count/100))%4] 
 
 	if(totalSize > 0):
 		percent = int(count*blockSize*100/totalSize)
@@ -187,7 +187,7 @@ def download_caption(vidmeta, folder):
 		media = smap['media']
 		if(media == "caption"):
 			capDom = minidom.parse(
-			urllib.urlopen(smap['url'])
+			urllib.request.urlopen(smap['url'])
 			)
 			texts = capDom.getElementsByTagName('text')
 			hp = HTMLParser()
@@ -232,7 +232,7 @@ def download_streams(vidmeta, folder):
 		logr.debug("\tSaving URL: %s\n\tto %s",smap['url'],filename) 
 		t0 = datetime.datetime.now() 
 		socket.setdefaulttimeout(120)
-		fname, msg = urllib.urlretrieve(url,filename,reporthook=dlProgress) 
+		fname, msg = urllib.request.urlretrieve(url,filename,reporthook=dlProgress) 
 		t1 = datetime.datetime.now() 
 		sys.stdout.write("\r")
 		sys.stdout.flush()
@@ -250,7 +250,7 @@ def download_streams(vidmeta, folder):
 def download_video(vid_item,folder):
 	logr = setup_vid_logger(vid) 
 
-	if vid_item.has_key('vmeta'):   
+	if 'vmeta' in vid_item:   
 		vidmeta = vid_item['vmeta'] 
 	else: 
 		try:

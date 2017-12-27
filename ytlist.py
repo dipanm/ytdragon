@@ -1,4 +1,4 @@
-#!/usr/bin/python -u 
+#!/usr/bin/python3 -u 
 
 #--------------------------------------------------------------------------------------------
 # Wish list 
@@ -10,7 +10,7 @@ import requests
 import json
 import pprint 
 import datetime
-import urlparse
+from urllib import parse as urlparse 
 import os 
 import sys
 import socket 
@@ -18,7 +18,7 @@ import re
 import getopt
 import logging
 import subprocess
-import StringIO
+from io import StringIO
 import string
 import ssl 
 import urllib
@@ -28,7 +28,7 @@ import certifi
 import multiprocessing as mp 
 
 from xml.dom import minidom
-from HTMLParser import HTMLParser
+from html.parser import HTMLParser
 
 from ytutils import clean_up_title 
 from ytmeta  import load_video_meta
@@ -56,24 +56,24 @@ unavail_list = { "[deleted video]", "[private video]" }
 # Generic functions for all types of list 
 
 def print_list_header(thelist): 
-	print "# "+thelist['list_type']+": "+thelist['list_id']	
-	print "# Title: "    +thelist['title']
-	print "# URL: "      +thelist['url']
-	print "# Owner: "    +thelist['owner']
-	print "# Total: "    +str(thelist['total']) 
+	print("# "+thelist['list_type']+": "+thelist['list_id'])
+	print("# Title: "    +thelist['title'])
+	print("# URL: "      +thelist['url'])
+	print("# Owner: "    +thelist['owner'])
+	print("# Total: "    +str(thelist['total']))
 
 def print_list_stats(thelist): 
 	plist = thelist['list'] 
 	del_items = thelist['total']-len(plist)
-	print "# Item count: Total="+str(thelist['total'])+" Available ="+str(len(plist))+" Deleted="+str(thelist['unavail'])+" Duplicate="+str(thelist['duplicate'])
+	print("# Item count: Total="+str(thelist['total'])+" Available ="+str(len(plist))+" Deleted="+str(thelist['unavail'])+" Duplicate="+str(thelist['duplicate']))
 
 def print_list(thelist): 
 	plist = thelist['list'] 
 	print_list_header(thelist)
 	print_list_stats(thelist)
-	print "#--------------------------------------------------------"
+	print("#--------------------------------------------------------")
 	for l in plist: 
-		print l['vid']+"\t"+l['max_res']+"\t"+l['title'] 
+		print(l['vid']+"\t"+l['max_res']+"\t"+l['title']) 
 
 	return 
 def longest_author_name(plist): 
@@ -208,8 +208,8 @@ def load_meta(v) :
 	try : 
 		vmeta = load_video_meta(v['vid']) 
 	except ytd_exception_meta as e:  
-		v['max_res'] = e.vidmeta['max_res'] if e.vidmeta.has_key('max_res') else "" 
-		v['author']  = e.vidmeta['author'] if e.vidmeta.has_key('author') else "" 
+		v['max_res'] = e.vidmeta['max_res'] if 'max_res' in e.vidmeta else "" 
+		v['author']  = e.vidmeta['author'] if 'author' in e.vidmeta else "" 
 		v['filesize'] = 0 
 		v['flags'] = "" 
 		return v
@@ -218,8 +218,8 @@ def load_meta(v) :
 
 	v['max_res'] = str(vmeta['max_res']) 
 	v['author']  = vmeta['author']
-	v['title']   = clean_up_title(vmeta['title']) if vmeta.has_key('title') else "<no_title>" 
-	v['duration'] = vmeta['duration'] if vmeta.has_key('duration') else "--:--" 
+	v['title']   = clean_up_title(vmeta['title']) if 'title' in vmeta else "<no_title>" 
+	v['duration'] = vmeta['duration'] if 'duration' in vmeta else "--:--" 
 	#print "@@>","vid:"+v['vid']+" max_res="+v['max_res']+" Dur:"+v['duration']+"\n"
 	flags = "V" if vmeta['type'] == "video" else "A"
 	flags = flags + "-$" if (vmeta['paid'] == True) else flags  
@@ -240,15 +240,16 @@ def load_more_ajax(url,uid_type):
 
 	logr.debug("Getting the page: %s",url) 
 
-	response = urllib.urlopen(url)
+	response = urllib.request.urlopen(url)
 	code = response.getcode() 
 	if(code != 200):
 		logm.critical("Error fetching ajax response") 
 		return { 'error' : -1} 
 
-	data = json.load(response) 
-	if not data.has_key('content_html') or (data['content_html'] == ""):
-		print "Load more button in error. skipping..."
+	response_text = urllib.request.urlopen(url).read().decode('UTF-8')
+	data = json.loads(response_text)
+	if 'content_html' not in data or (data['content_html'] == ""):
+		print("Load more button in error. skipping...")
 		return { 'error' : 1, 'list_content': None, 'lm_widget': None} 
 	
 	if(uid_type == "playlist"): 
@@ -349,7 +350,7 @@ def youtube_list_extract(page,thelist):
 		#print "Loading next ... "+lmurl 
 		ajax_resp = load_more_ajax(lmurl,thelist["list_type"]) 
 		if(ajax_resp['error'] <0 ): 
-			print "Error extracting load more... returning the list" 
+			print("Error extracting load more... returning the list")
 			break
 		pl = list_parse(ajax_resp['list_content'],uid_type,len(plist))
 		plist.extend(pl)

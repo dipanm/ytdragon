@@ -1,11 +1,11 @@
-#!/usr/bin/python -u 
+#!/usr/bin/python3 -u 
 
 from lxml import html 
 
 import json
 import urllib
 import re
-import urlparse
+from urllib import parse as urlparse 
 import pprint 
 
 from ytutils import print_pretty
@@ -25,7 +25,7 @@ class ytd_exception_meta(Exception):
 			
 	def __init__(self,error,page,meta,extra_msg): 
 		self.errtype	= error
-		self.errmsg	= self.error_table[error] if self.error_table.has_key(error) else "Unknown" 
+		self.errmsg	= self.error_table[error] if error in self.error_table else "Unknown" 
 		self.page	= page
 		self.vidmeta	= meta
 		self.msgstr 	= extra_msg
@@ -109,7 +109,7 @@ def parse_watch_page(wpage):
 
 	# extract player args from the player script 	
 	arg_list = json.loads(player_script)
-	args = arg_list['args'] if arg_list.has_key('args') else None 
+	args = arg_list['args'] if 'args' in arg_list else None 
 
 	# populate the attributes
 	vid_meta['author'] 		= " ".join(map(str.strip, tree.xpath("//div[@class='yt-user-info']//text()"))).strip()
@@ -127,15 +127,17 @@ def parse_watch_page(wpage):
 	if (args != None):
 		vid_meta['player_args'] 		= True 		# we don't quite need this but still! 
 		for k in arg_keys: 
-			vid_meta[k] = args[k] if (args.has_key(k)) else '' 
+			vid_meta[k] = args[k] if k in args else '' 
 
-		vid_meta['country']	= args['cr'] 	if(args.has_key('cr')) else ''
+		vid_meta['country']	= args['cr'] if 'cr' in args else ''
 		vid_meta['has_caption']	= True if vid_meta['caption_tracks'] != "" else False 
 		f = args['fmt_list'].split(',')
 		r = f[0] if (len(f) > 0)  else ""
 		vid_meta['max_res'] 	= r.split('/')[1] if len(r) > 0 else "" 
 		vid_meta['filesize'] 	= 0 	# right now we don't know 
-		vid_meta['duration']	= str(int(args['length_seconds'])/60)+":"+str(int(args['length_seconds'])%60)
+		mins = int(int(args['length_seconds'])/60)
+		secs = int(args['length_seconds'])%60
+		vid_meta['duration']	= "{}:{:02d}".format(mins,secs) 
 	else :
 		vid_meta['player_args'] = False 
 		vid_meta['max_res'] 	= 0
@@ -175,8 +177,8 @@ def parse_watch_page_express(wpage):
 
 def parse_stream_map(args):
 
-	encoded_map = args['url_encoded_fmt_stream_map'].split(",") if(args.has_key('url_encoded_fmt_stream_map')) else list() 
-	encoded_map_adp = args['adaptive_fmts'].split(",") if(args.has_key('adaptive_fmts')) else list() 
+	encoded_map = args['url_encoded_fmt_stream_map'].split(",") if('url_encoded_fmt_stream_map' in args) else list() 
+	encoded_map_adp = args['adaptive_fmts'].split(",") if('adaptive_fmts' in args) else list() 
 	
 	if( (len(encoded_map) ==0) and (len(encoded_map_adp) == 0)):
 		return None 
@@ -192,8 +194,8 @@ def parse_stream_map(args):
 			fmt_map = dict({'stream':"std", 'fps':"30"}) #Keep 30 fps as default. If the key exist, will be overwritten
 			for sm in fmt_map_list:
 				pair = sm.split("=")
-				pair[1] = urllib.unquote(pair[1]).decode('utf8')
-				pair[1] = urllib.unquote(pair[1]).decode('utf8')
+				pair[1] = urllib.parse.unquote(pair[1])
+				pair[1] = urllib.parse.unquote(pair[1])
 				fmt_map.update({str(pair[0]):str(pair[1])}) 
 				if pair[0] == "quality":
 					fmt_map.update({'res':res_index[pair[1]]}) 
@@ -223,8 +225,8 @@ def parse_stream_map(args):
 			adp_map = dict({'stream':"adp", 'fps':"30"}) #Keep 30 fps as default. If the key exist, will be overwritten
 			for sm in adp_map_list:
 				pair = sm.split("=")
-				pair[1] = urllib.unquote(pair[1]).decode('utf8')
-				pair[1] = urllib.unquote(pair[1]).decode('utf8')
+				pair[1] = urllib.parse.unquote(pair[1])
+				pair[1] = urllib.parse.unquote(pair[1])
 				adp_map.update({str(pair[0]):str(pair[1])}) 
 				if pair[0] == "quality":
 					adp_map.update({'res':res_index[pair[1]]}) 
@@ -251,7 +253,7 @@ def parse_stream_map(args):
 		adp_stream_map_a = sorted(adp_stream_map_a, key= lambda k: int(k['bitrate']), reverse=True) 
 
 	caption_map = list() 
-	if(args.has_key('caption_tracks')): 
+	if('caption_tracks' in args): 
 		caption_str = args['caption_tracks'].split(",") 
 		for cmap in caption_str:
 			cap_map = dict() 
@@ -266,8 +268,8 @@ def parse_stream_map(args):
 					c_attrib[0] = 'lang'
 				if(c_attrib[0] == 'n'): 
 					c_attrib[0] = 'name'
-				c_attrib[1] = urllib.unquote(c_attrib[1]).decode('utf8') 
-				c_attrib[1] = urllib.unquote(c_attrib[1]).decode('utf8') 
+				c_attrib[1] = urllib.parse.unquote(c_attrib[1])
+				c_attrib[1] = urllib.parse.unquote(c_attrib[1])
 				cap_map.update({str(c_attrib[0]):str(c_attrib[1])})
 				cap_map.update({'media':'caption','fmt':'srt'}) 
 			caption_map.append(cap_map)
