@@ -18,6 +18,7 @@
 #	- Deal with signatured streams that otherwise throws 403 (e.g. '-RMD88DNaGk') 
 #	- there exists custom urls for channels. see https://www.youtube.com/account_advanced
 #	- my own channel is different from std (makemegenious) https://www.youtube.com/channel/UCzvGqEme9-yngxiYXY_Zk7A
+#	- maintain partial download work for lists - 
 
 ## Trace and No repeat download:
 #	- maintain a trace and don't redownload what you have already got. { verify in the directory ... } 
@@ -36,6 +37,8 @@
 #	- generic policies in what to fetch : AudioOnly/VideoOnly/AV, Max res, 
 #	- post processing of video. e.g. convert to mp3
 #	- generalize the output file format ... make it what user wants. Can be done at FFMPEG level. 
+#	- filters for download. From a given list - downloard only with specific Resolution, Playtime (skip 360p) 
+#		- or downalod if title contains specific string. ( download Documentary.* in title - skip others) 
 
 ## .yl file format and power fetch:
 #	- now the .yl in turn can have references to full channel, playlist etc. expand all of them before download 
@@ -43,6 +46,10 @@
 #	- tabs being compulsory in .yl files is a problem, specially when the files are handwritten. 
 #	- fetch can now be given multiple uid_references which it can download all serially
 #	- download channels --by-playlist - so will keep each playlist in different subfolder 
+#	- preserve COMMENTS in original .yl file if extracting again. 
+# 	- by default making .yl to .yl again -> the tab limited fields can be erased. Everything written post # should be preserved. 
+#		- this way repeated .yl to .yl will not add repeated columns, and also will not erease user notes. 
+#	- create .yl (or equivalent) as a result of download of list 
 
 ## Beyond youtube:
 #	- download from Dailymotion
@@ -61,6 +68,8 @@
 # 	- file issues for well defined items. 
 #	- prepare readme - specially for explaining usage and download_ref. 
 #	- specify dependencies -e.g. certifi 
+#	- if -o 'filename' supplied AFTER the URL_REF then it doesn't take 
+
 #----------------------------------------------------------------------------------------------------
 # Code TODO 
 #	- make item logger global (how will you handle in multithread situation?) 
@@ -69,6 +78,7 @@
 #	- keep all common strings in a central place 
 #	- it's time, the code must have classes for important stuff. 
 #	- load_list of different type should come with simple and single abstraction. 
+#	- use of many 'prints' is not clean - convert it to log functions 
 #-----------------------------------------------------------------------------------------------------
 
 
