@@ -20,7 +20,15 @@
 #	- my own channel is different from std (makemegenious) https://www.youtube.com/channel/UCzvGqEme9-yngxiYXY_Zk7A
 #	- maintain partial download work for lists - 
 
+# Page caching:
+#	- cache every ytpage. it will solve many problems:
+#	     - if (large) extract fails and it is restarted, it shouldn't bring ALL pages which were once succesful! 
+#	     - once you do extract you have got all pages - now doing fetch on full channel/playlist OR part need not get_page() again.
+# 	     - if a particular video is part of multiple playlist or you try again without realizing, or somehow .yl is deleted 
+# 	    caching will reduce hits going to youtube
+
 ## Trace and No repeat download:
+#	- at the very minimal - if you try the same command again - whatever work has already been done, should not require redownload.
 #	- maintain a trace and don't redownload what you have already got. { verify in the directory ... } 
 # 	- skip what is already downloaded  { verify in the directory ... } 
 #	- you can also check if the file is physically present. 
@@ -39,9 +47,15 @@
 #	- generalize the output file format ... make it what user wants. Can be done at FFMPEG level. 
 #	- filters for download. From a given list - downloard only with specific Resolution, Playtime (skip 360p) 
 #		- or downalod if title contains specific string. ( download Documentary.* in title - skip others) 
+#	- default folder can be given in ytconfg.py  (or some yml file) 
+#	- use varaible in default config as formatting items: e.g.
+#	-   %H -> default_download_dir, %F -> current folder, %A -> Author/Channel name, %P -> playlist name, %T -> Title,
+#	-   %R -> res %I -> id %S -> site name (youtube) %N -> sequence number (in list) 
+#	- all configuration should be modifiable from commandline args also. 
 
 ## .yl file format and power fetch:
 #	- now the .yl in turn can have references to full channel, playlist etc. expand all of them before download 
+#	- when playlist URL is given instead of video in .yl file, recognise and trasnlate accordingly. 
 #	- probe for file size during extract and capture it in yl format? 
 #	- tabs being compulsory in .yl files is a problem, specially when the files are handwritten. 
 #	- fetch can now be given multiple uid_references which it can download all serially
@@ -56,6 +70,12 @@
 #	- download from vimeo
 #	- download from these sites including playlists/ channels. 
 
+# Smart Downloads:	- OK these are huge - work but might as well WISH 
+#	- collect all meta tags og:video:tag. 
+#	- When you extract full channels, large playlists, use these tags to somehow cluster - make groups with comments.
+#	- other form of grouping is, in a given channel - if parts of video are in playlist form make that a group. 
+#	- similarly "N Grams" in title - "How stuff works - x", "How stuff works - y" etc. can be grouped. 
+
 ## General
 #	- mkdir if folder for -f doesn't exist. 
 #	- don't say 'Enjoy the video' when there is no download. 
@@ -69,6 +89,7 @@
 #	- prepare readme - specially for explaining usage and download_ref. 
 #	- specify dependencies -e.g. certifi 
 #	- if -o 'filename' supplied AFTER the URL_REF then it doesn't take 
+#	- '/' is earased from title because it is not allowed in a file name. However it should be replace by some char not earased.
 
 #----------------------------------------------------------------------------------------------------
 # Code TODO 
