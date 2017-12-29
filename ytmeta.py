@@ -7,6 +7,7 @@ import urllib
 import re
 from urllib import parse as urlparse 
 import pprint 
+import logging
 
 from ytutils import print_pretty
 from ytpage import get_page
@@ -112,6 +113,8 @@ def parse_watch_page(wpage):
 	args = arg_list['args'] if 'args' in arg_list else None 
 
 	# populate the attributes
+	# TODO: Things break when you supply incorrect vid. So that should have been handled earlier itself.
+	# 	and it should function here gracefully here as well in case some page is broken. 
 	vid_meta['author'] 		= " ".join(map(str.strip, tree.xpath("//div[@class='yt-user-info']//text()"))).strip()
 	vid_meta['author_url'] 		= default_hurl+tree.xpath("//div[@class='yt-user-info']/a/@href")[0]
 	vid_meta['keywords'] 		= tree.xpath("//meta[@name='keywords']/@content")[0].split(',') 
