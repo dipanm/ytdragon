@@ -2,7 +2,6 @@
 # Wish list 
 
 ## THE BIG MIGRATION: 
-#	- Move to Python 3.x 
 #	- deal with any UNICODE strings anywhere.
 # 	- use right mechanism for HTTP downloads. 
 #	- geting page, streams and captions all have different types of download functions. Generalize!
@@ -22,9 +21,9 @@
 
 # Page caching:
 #	- cache every ytpage. it will solve many problems:
-#	     - if (large) extract fails and it is restarted, it shouldn't bring ALL pages which were once succesful! 
-#	     - once you do extract you have got all pages - now doing fetch on full channel/playlist OR part need not get_page() again.
-# 	     - if a particular video is part of multiple playlist or you try again without realizing, or somehow .yl is deleted 
+#	- if (large) extract fails and it is restarted, it shouldn't bring ALL pages which were once succesful! 
+#	- once you do extract you have got all pages - now doing fetch on full channel/playlist OR part need not get_page() again.
+# 	- if a particular video is part of multiple playlist or you try again without realizing, or somehow .yl is deleted 
 # 	    caching will reduce hits going to youtube
 
 ## Trace and No repeat download:
@@ -64,6 +63,7 @@
 # 	- by default making .yl to .yl again -> the tab limited fields can be erased. Everything written post # should be preserved. 
 #		- this way repeated .yl to .yl will not add repeated columns, and also will not erease user notes. 
 #	- create .yl (or equivalent) as a result of download of list 
+#	-  meta attrib should download size of file / add in .yl 
 
 ## Beyond youtube:
 #	- download from Dailymotion
@@ -90,6 +90,11 @@
 #	- specify dependencies -e.g. certifi 
 #	- if -o 'filename' supplied AFTER the URL_REF then it doesn't take 
 #	- '/' is earased from title because it is not allowed in a file name. However it should be replace by some char not earased.
+#	- default folder name is ./ But it can also be title of playlist or owner_name etc. for muliple videos
+#	- we have v= vid= video= ,,,too many optinos to do same. so need to get rid of some options.
+#	- save user/channel by playlist
+#	- preserve comments (inline as well as full) in yl.
+#	- make ytdownload or ytfetch and unify all apps.
 
 #----------------------------------------------------------------------------------------------------
 # Code TODO 
@@ -100,6 +105,8 @@
 #	- it's time, the code must have classes for important stuff. 
 #	- load_list of different type should come with simple and single abstraction. 
 #	- use of many 'prints' is not clean - convert it to log functions 
+#	- make all stuff as classes.
+#	- vmeta is very clumsy = it has two layers v[xxx] attribs and v[vmeta][xxx] attribs with quite an overlap. clean this.
+#	- finally logging is no loger need to be as dense as it was required and logging as we do might be unclean for external users. fix
 #-----------------------------------------------------------------------------------------------------
-
 
