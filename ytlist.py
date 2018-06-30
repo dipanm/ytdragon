@@ -47,7 +47,7 @@ itemlog_path = "./logs"
 deep_debug = False
 
 max_threads = 10
-load_sequential = True
+load_sequential = False
 
 youtube = "https://www.youtube.com"
 unavail_list = { "[deleted video]", "[private video]" } 
