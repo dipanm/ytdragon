@@ -20,13 +20,14 @@ default_hurl = "https://"+default_host
 #------ Exception Handling class -----------------------------------------------
 class ytd_exception_meta(Exception): 
 	error_table = { "PAGE_FETCH_ERR": "Can't fetch watch page", 
-			"YOUTUBE_ERROR"	: "Youtube Can't serve this page!", # Raised in parse_watch_page() 
+			"YOUTUBE_ERROR"	: "Youtube can't serve this page!", # Raised in parse_watch_page()
 			"BAD_PAGE" 	: "Unable to parse page or illformed page", 
 			"NO_STREAMS" 	: "Download stream_map not available" }   
 			
 	def __init__(self,error,page,meta,extra_msg): 
 		self.errtype	= error
-		self.errmsg	= self.error_table[error] if error in self.error_table else "Unknown" 
+		msg =  self.error_table[error] if error in self.error_table else "Unknown Error"
+		self.errmsg	= "Youtube Exception: "+msg
 		self.page	= page
 		self.vidmeta	= meta
 		self.msgstr 	= extra_msg
@@ -88,64 +89,64 @@ def fast_extract_fmt_list(script_str) :
 
 def parse_watch_page(wpage):
 
-	page = wpage['contents'] 
-	arg_keys = {  'loudness', 'timestamp', 'host_language', 'avg_rating', 'view_count', 'thumbnail_url', 
-	   'fmt_list', 'adaptive_fmts', 'url_encoded_fmt_stream_map', 'caption_tracks', 'caption_translation_languages' } 
+	page = wpage['contents']
+	arg_keys = {  'loudness', 'timestamp', 'host_language', 'avg_rating', 'view_count', 'thumbnail_url',
+	   'fmt_list', 'adaptive_fmts', 'url_encoded_fmt_stream_map', 'caption_tracks', 'caption_translation_languages' }
 
 	prop_keys = { 'og:title' : 'title' , 'og:description' : 'description', 'og:type' : 'type',
-			'og:url': 'url', 'og:image': 'fullimage_url', 'og:video:url' : 'embed_url' } 
+			'og:url': 'url', 'og:image': 'fullimage_url', 'og:video:url' : 'embed_url' }
 	iprop_keys = { 'videoId' : 'vid' , 'channelId' : 'chid','datePublished': 'datePublished','genre': 'genre',
 			'regionsAllowed': 'regionsAllowed' ,'isFamilyFriendly': 'isFamilyFriendly','paid': 'paid' }
 
-	vid_meta = dict() 
-	# extract dom tree of HTML Page
-	tree = html.fromstring(page) 
+	vid_meta = dict()
+	# extract dom tree of HTML page
+	tree = html.fromstring(page)
 
-	# extract player script 
-	script = tree.xpath('//script[contains(.,"ytplayer")]/text()') 
-	player_script = extract_player_args(script) 
+	# populate the attributes-
+	# TODO : Things break when you supply incorrect vid. So that should have been handled earlier itself.
+	# 	and it should function here gracefully here as well in case some page is broken.
+	vid_meta['author'] 	= " ".join(map(str.strip, tree.xpath("//div[@class='yt-user-info']//text()"))).strip()
+	vid_meta['author_url'] 	= default_hurl+tree.xpath("//div[@class='yt-user-info']/a/@href")[0]
+	vid_meta['keywords'] 	= tree.xpath("//meta[@name='keywords']/@content")[0].split(',')
+
+	for k in prop_keys:
+		v  = tree.xpath("//meta[@property='"+k+"']/@content")
+		vid_meta[prop_keys[k]] = v[0] if (len(v)> 0) else ''
+
+	for k in iprop_keys:
+		v  = tree.xpath("//meta[@itemprop='"+k+"']/@content")
+		vid_meta[iprop_keys[k]] = v[0] if (len(v)> 0) else ''
+
+	# extract player script
+	script = tree.xpath('//script[contains(.,"ytplayer")]/text()')
+	player_script = extract_player_args(script)
 	if (player_script == ""):
-		plerror = " ".join(map(str.strip, tree.xpath('//div[@id="player-unavailable"]//text()'))) 
-		raise ytd_exception_meta("YOUTUBE_ERROR",wpage,vid_meta,plerror) 
+		plerror = " ".join(map(str.strip, tree.xpath('//div[@id="player-unavailable"]//text()')))
+		raise ytd_exception_meta("YOUTUBE_ERROR",wpage,vid_meta,plerror)
 
-	# extract player args from the player script 	
+	# extract player args from the player script
 	arg_list = json.loads(player_script)
-	args = arg_list['args'] if 'args' in arg_list else None 
-
-	# populate the attributes
-	# TODO: Things break when you supply incorrect vid. So that should have been handled earlier itself.
-	# 	and it should function here gracefully here as well in case some page is broken. 
-	vid_meta['author'] 		= " ".join(map(str.strip, tree.xpath("//div[@class='yt-user-info']//text()"))).strip()
-	vid_meta['author_url'] 		= default_hurl+tree.xpath("//div[@class='yt-user-info']/a/@href")[0]
-	vid_meta['keywords'] 		= tree.xpath("//meta[@name='keywords']/@content")[0].split(',') 
-	
-	for k in prop_keys: 
-		v = tree.xpath("//meta[@property='"+k+"']/@content") 
-		vid_meta[prop_keys[k]] = v[0] if (len(v)> 0) else '' 
-
-	for k in iprop_keys: 
-		v = tree.xpath("//meta[@itemprop='"+k+"']/@content")
-		vid_meta[iprop_keys[k]] = v[0] if (len(v)> 0) else '' 
+	args = arg_list['args'] if 'args' in arg_list else None
 
 	if (args != None):
-		vid_meta['player_args'] 		= True 		# we don't quite need this but still! 
-		for k in arg_keys: 
-			vid_meta[k] = args[k] if k in args else '' 
+		vid_meta['player_args']	= True 		# we don't quite need this but still!
+		for k in arg_keys:
+			vid_meta[k] = args[k] if k in args else ''
 
 		vid_meta['country']	= args['cr'] if 'cr' in args else ''
-		vid_meta['has_caption']	= True if vid_meta['caption_tracks'] != "" else False 
+		vid_meta['has_caption']	= True if vid_meta['caption_tracks'] != "" else False
 		f = args['fmt_list'].split(',')
 		r = f[0] if (len(f) > 0)  else ""
-		vid_meta['max_res'] 	= r.split('/')[1] if len(r) > 0 else "" 
-		vid_meta['filesize'] 	= 0 	# right now we don't know 
+		vid_meta['max_res'] 	= r.split('/')[1] if len(r) > 0 else ""
+		vid_meta['filesize'] 	= 0 	# right now we don't know
 		mins = int(int(args['length_seconds'])/60)
 		secs = int(args['length_seconds'])%60
-		vid_meta['duration']	= "{}:{:02d}".format(mins,secs) 
-	else :
-		vid_meta['player_args'] = False 
+		vid_meta['duration']	= "{}:{:02d}".format(mins,secs)
+	else:
+		vid_meta['player_args'] = False
 		vid_meta['max_res'] 	= 0
-		vid_meta['has_caption'] = False 
-	
+		vid_meta['has_caption'] = False
+
 	return vid_meta 
 
 def parse_watch_page_express(wpage):

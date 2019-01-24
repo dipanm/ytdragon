@@ -192,22 +192,25 @@ def download_video(vid_item,folder):
 		try:
 			vidmeta = load_video_meta(vid_item['vid'])
 		except ytd_exception_meta as e:
+			if('title' in e.vidmeta):
+				logr.info("\tTitle:'%s'",e.vidmeta['title'])
+			if('author' in e.vidmeta):
+				logr.info("\tAuthor:'%s'",e.vidmeta['author'])
 			if (e.errtype == "PAGE_FETCH_ERR"):
-				logr.critical("\t{} :{}".format(e.errmsg,e.msgstr))
+				logr.critical("{} :{}".format(e.errmsg,e.msgstr))
 			if (e.errtype == "YOUTUBE_ERROR"):
-				logr.critical(e.errmsg)
+				logr.critical("{}".format(e.errmsg))
 				logr.info("-"*45+"\n"+e.msgstr+"\n"+"-"*45)
 			if (e.errtype == "BAD_PAGE"):
-				logr.critical("\t"+e.errmsg)
+				logr.critical(e.errmsg)
 				print_pretty(logr,"Parsing failed: vid_meta "+"="*20,e.vidmeta)
 			if (e.errtype == "NO_STREAMS"):
-				logr.info("\tTitle:'%s'\n\tAuthor:'%s'",e.vidmeta['title'],e.vidmeta['author'])
-				logr.critical("\t"+e.errmsg)
+				logr.critical(e.errmsg)
 				print_pretty(logr,"Parsing failed: vid_meta "+"="*20,e.vidmeta)
 
 			if(deep_debug):
 				write_to_file(vid+".html",e.page['contents'])
-			return
+			return 0
 
 	print_pretty(logr,"Parsing successful: vid_meta "+"="*20,vidmeta)
 	smap = vidmeta['stream_map']
@@ -223,7 +226,7 @@ def download_video(vid_item,folder):
 	download_caption(vidmeta,folder)
 	logr.info("\tFetch Complete @ %s ----------------",str(datetime.datetime.now()))
 
-	return
+	return 1
 
 #---------------------------------------------------------------
 # Top level functions for Main
@@ -239,8 +242,7 @@ def download_with_retry(item,folder,index=0,retries=max_retries):
 		retry_str = "-try(%d)"%(r) if r>0 else ""
 		try:
 			logm.info("Downloading item %s [%s]: %s %s",index_str,item['vid'],str(datetime.datetime.now()),retry_str)
-			download_video(item,folder)
-			result = 1
+			result = download_video(item,folder)
 			break;	# download successful
 
 		except urllib.error.HTTPError as e:
