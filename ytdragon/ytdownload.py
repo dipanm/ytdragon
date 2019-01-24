@@ -95,7 +95,7 @@ def combine_streams(temp_files,outfile,remove_temp_files):
 	proc_out, _ = proc.communicate()
 
 	logr.debug(proc_out)
-	return_code = proc.wait(
+	return_code = proc.wait()
 
 	if(return_code == 0):
 		logr.debug("\n\tFFMPEG Muxing successful.")
