@@ -1,16 +1,16 @@
 #!/usr/bin/python3 -u 
 
-import pprint 
+import pprint
 import datetime
-import os 
+import os
 import sys
-import socket 
+import socket
 import getopt
 import logging
 import subprocess
 from io import StringIO
 import string
-import ssl 
+import ssl
 import urllib
 import certifi
 
@@ -18,35 +18,35 @@ from xml.dom import minidom
 from html.parser import HTMLParser
 
 from ytdragon.ytutils import print_pretty
-from ytdragon.ytpage import get_uid_from_ref 
+from ytdragon.ytpage import get_uid_from_ref
 from ytdragon.ytmeta import create_default_vid_meta
-from ytdragon.ytlist import load_list 
-from ytdragon.ytdownload import download_video, download_list
+from ytdragon.ytlist import load_list
+from ytdragon.ytdownload import download_with_retry, download_list
 
 ### User Config Variable ----------------------------
 
-quite = False 
-enable_line_log = True 
-line_log_path  = "./ytdragon.log" 
-enable_vid_log  = True 
+quite = False
+enable_line_log = True
+line_log_path  = "./ytdragon.log"
+enable_vid_log  = True
 vidlog_path = "./logs"
 deep_debug = True
 
-default_host = "youtube.com" 
-default_hurl = "https://"+default_host 
+default_host = "youtube.com"
+default_hurl = "https://"+default_host
 
 #### -- Logging Related Functions -------------------
 
 def setup_main_logger():
-	logm = logging.getLogger() 	# Basic level is DEBUG only to allow other handlers to work 
-	logm.setLevel(logging.DEBUG) 
+	logm = logging.getLogger() 	# Basic level is DEBUG only to allow other handlers to work
+	logm.setLevel(logging.DEBUG)
 
 	cfh = logging.StreamHandler()
-	if(quite): 
+	if(quite):
 		cfh.setLevel(logging.WARN)
-	else: 
+	else:
 		cfh.setLevel(logging.INFO)
-	logm.addHandler(cfh) 
+	logm.addHandler(cfh)
 
 	if(enable_line_log): 
 		ifh = logging.FileHandler(line_log_path,mode='a')
@@ -56,12 +56,12 @@ def setup_main_logger():
 		logm.addHandler(ifh)
  
 	return logm
-	
-#---------------------------------------------------------------
-# Support functions for Main 
 
-def parse_arguments(argv): 
-	logm = logging.getLogger() 
+#---------------------------------------------------------------
+# Support functions for Main
+
+def parse_arguments(argv):
+	logm = logging.getLogger()
 	usage_str = "Usage: %s -f|--folder='destination' <download_reference> \n"
 	usage_str += " Download Reference can be defined as below \n"
 	usage_str += "  It can be direct URL such as http://www.youtube.com/watch?v=<vid> \n"
@@ -69,67 +69,69 @@ def parse_arguments(argv):
 	usage_str += " Youtube Playlists and YT Lists can be directly downloaded from here with following download_refs \n"
 	usage_str += " YT List downlad ref: l=<ytlist_file.yl> or yl=<ytlist_file.yl> or ytlist=<ytlist_file.yl>\n"
 	usage_str += " Playlist download ref: playlist_url  p=<plid> or pl=<plid> or playlist=<plid>\n"
-	usage_str += " Remember no spaces before or after '=' \n" 
+	usage_str += " Remember no spaces before or after '=' \n"
 	usage_str += " Currently channel and playlist are not supported to be fetched directly so use 'extract' for the same"
 
 	folder = ""
 
-	if (len(argv) == 0) : 
+	if (len(argv) == 0):
 		logm.critical(usage_str,sys.argv[0])
-		sys.exit(2) 
+		sys.exit(2)
 
 	try:
 		opts, args = getopt.getopt(argv,"f:",["folder="])
 	except getopt.GetoptError as err:
-		logm.error("Error in Options: %s",str(err)) 
+		logm.error("Error in Options: %s",str(err))
 		logm.critical(usage_str,sys.argv[0])
 		sys.exit(2)
-	
+
 	for opt, arg in opts:
 		if opt in ("-f", "--folder"):
 			folder = arg
 
 	if ( folder == ""): 
-		logm.warning("Missing destination folder. Assuming './' (current working directory) ") 
-		folder = "./" 
+		logm.warning("Missing destination folder. Assuming './' (current working directory) ")
+		folder = "./"
 
-	logm.debug("Destination folder for streams: %s",folder) 
+	logm.debug("Destination folder for streams: %s",folder)
 
-	if ( len(args) > 0) : 
-		uid_ref = args[0] 
-	else : 
-		logm.critical("Missing source. supply at least one reference to download") 
+	if ( len(args) > 0):
+		uid_ref = args[0]
+	else:
+		logm.critical("Missing source. supply at least one reference to download")
 		logm.critical(usage_str,sys.argv[0])
 		sys.exit(2)
 
-	return folder, uid_ref  
+	return folder, uid_ref
 
 #---------------------------------------------------------------
 # Main function
 
-logm = setup_main_logger() 
+logm = setup_main_logger()
 
-(folder, uidref) = parse_arguments(sys.argv[1:]) 
+(folder, uidref) = parse_arguments(sys.argv[1:])
 
 status, uid_type, uid = get_uid_from_ref(uidref)
+success = 0
 
-if(status != "OK") : 
-	logm.info("Skipping uid %s: Status %s",uid,status) 
-	exit(); 
+if(status != "OK"):
+	logm.info("Skipping uid %s: Status %s",uid,status)
+	exit();
 
 if (uid_type == "video"):
-	logm.info("Downloading video: [%s]",uid) 
 	vid = uid
-	vid_item = create_default_vid_meta(uid)  
-	download_video(vid_item,folder) 
+	vid_item = create_default_vid_meta(uid)
+	success = download_with_retry(vid_item,folder)
 
-elif( (uid_type == "ytlist") or (uid_type == "playlist") or (uid_type == "channel") ):  
+elif( (uid_type == "ytlist") or (uid_type == "playlist") or (uid_type == "channel")):
 	uid_list = load_list(uid,uid_type)
-	download_list(uid_list,folder) 
-		
-else:
-	logm.info("Type currently not supported. or Error in id_reference") 
-	logm.info("Status {} id_type {} uid {}".format(status, uid_type, uid)) 
+	success = download_list(uid_list,folder)
 
-logm.info("Good bye... Enjoy the video!") 
+else:
+	logm.info("Type currently not supported. or Error in id_reference")
+	logm.info("Status {} id_type {} uid {}".format(status, uid_type, uid))
+
+logm.info("Downloaded {} videos".format(success))
+
+logm.info("Good bye... {}".format("Enjoy the video!" if (success>0) else "Bad luck"))
 
