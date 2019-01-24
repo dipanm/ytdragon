@@ -15,6 +15,7 @@
 #	- parallel thread downloading 
 #	- If youtube throws 404/403 - in actual downloads. it should not proceed like a normal flow. Exception should be handled. [ Done! ]
 #	- Deal with signatured streams that otherwise throws 403 (e.g. '-RMD88DNaGk') 
+#	- Video's that are not served by youtube for copyright reasons (a-dshRotmnQ Felitsa Live Elmorro) should not be shown as success!
 #	- there exists custom urls for channels. see https://www.youtube.com/account_advanced
 #	- my own channel is different from std (makemegenious) https://www.youtube.com/channel/UCzvGqEme9-yngxiYXY_Zk7A
 #	- maintain partial download work for lists - 
