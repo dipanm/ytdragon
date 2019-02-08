@@ -2,9 +2,10 @@
 # Wish list 
 
 ## THE BIG MIGRATION: 
-#	- deal with any UNICODE strings anywhere.
+#	- deal with any UNICODE strings anywhere.  [works under python3?]
 # 	- use right mechanism for HTTP downloads. 
 #	- geting page, streams and captions all have different types of download functions. Generalize!
+#	- CLASSES! - convert all stuff in classes. Then apply inheritance per source
 
 ## Reliable Download:
 #	- create your own powerful downloader which can go chunk-by-chunk with better control. 
@@ -15,7 +16,7 @@
 #	- parallel thread downloading 
 #	- If youtube throws 404/403 - in actual downloads. it should not proceed like a normal flow. Exception should be handled. [ Done! ]
 #	- Deal with signatured streams that otherwise throws 403 (e.g. '-RMD88DNaGk') 
-#	- Video's that are not served by youtube for copyright reasons (a-dshRotmnQ Felitsa Live Elmorro) should not be shown as success!
+#	- Video's that are not served by youtube for copyright reasons (a-dshRotmnQ Felitsa Live Elmorro) should not be shown as success! [Done!] 
 #	- there exists custom urls for channels. see https://www.youtube.com/account_advanced
 #	- my own channel is different from std (makemegenious) https://www.youtube.com/channel/UCzvGqEme9-yngxiYXY_Zk7A
 #	- maintain partial download work for lists - 
@@ -28,6 +29,7 @@
 # 	    caching will reduce hits going to youtube
 
 ## Trace and No repeat download:
+#	- in list downloard - if the file is already present (with roughly same size) in target folder, then skip download
 #	- at the very minimal - if you try the same command again - whatever work has already been done, should not require redownload.
 #	- maintain a trace and don't redownload what you have already got. { verify in the directory ... } 
 # 	- skip what is already downloaded  { verify in the directory ... } 
@@ -52,6 +54,7 @@
 #	-   %H -> default_download_dir, %F -> current folder, %A -> Author/Channel name, %P -> playlist name, %T -> Title,
 #	-   %R -> res %I -> id %S -> site name (youtube) %N -> sequence number (in list) 
 #	- all configuration should be modifiable from commandline args also. 
+#	- support all types of youtube URLs 
 
 ## .yl file format and power fetch:
 #	- now the .yl in turn can have references to full channel, playlist etc. expand all of them before download 
@@ -70,6 +73,8 @@
 #	- download from Dailymotion
 #	- download from vimeo
 #	- download from these sites including playlists/ channels. 
+#	- download from openload.co 
+#	- extract listing from ihavenotv 
 
 # Smart Downloads:	- OK these are huge - work but might as well WISH 
 #	- collect all meta tags og:video:tag. 
@@ -79,7 +84,8 @@
 
 ## General
 #	- mkdir if folder for -f doesn't exist. 
-#	- don't say 'Enjoy the video' when there is no download. 
+#	- don't say 'Enjoy the video' when there is no download. [DONE]
+#	- -n switch to specify how many max videos to download. download only first 5/10 video rather than full list.
 #	- Resume incomplete downloads from where they were left 
 #	- capture critical stuff and do clean exit when user presses Ctr+C 
 #	- list control - follow list, pause, stop and resume post what is finished. 
@@ -96,6 +102,7 @@
 #	- save user/channel by playlist
 #	- preserve comments (inline as well as full) in yl.
 #	- make ytdownload or ytfetch and unify all apps.
+#	- NEW REFS: Revise refrence short-hand notation keeping in mind all other sites.
 
 #----------------------------------------------------------------------------------------------------
 # Code TODO 
@@ -109,5 +116,12 @@
 #	- make all stuff as classes.
 #	- vmeta is very clumsy = it has two layers v[xxx] attribs and v[vmeta][xxx] attribs with quite an overlap. clean this.
 #	- finally logging is no loger need to be as dense as it was required and logging as we do might be unclean for external users. fix
+#	- simplify ytmeta. Single function with power of regex should be able to decode any URL, category and site
+#	- extract has no additional functionality now. convert this into swith --extract under ./fetch 
+
+# New naming conventions:
+#	- better name for project!
+#	- name for module, generic classes, and specific classes by source
+
 #-----------------------------------------------------------------------------------------------------
 
