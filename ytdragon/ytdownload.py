@@ -14,6 +14,7 @@ import ssl
 import urllib
 import certifi
 import time
+import json
 
 from xml.dom import minidom
 from html.parser import HTMLParser
@@ -140,6 +141,34 @@ def download_caption(vidmeta, folder):
 			logr.info("\t%s\n\tSaved in: => %s",smap_to_str(smap),path)
 			break;
 
+def check_if_downloaded(filepath, vid_meta):
+
+	if not os.path.isfile(filepath): # No file hence continue to download
+		return False
+
+	cmd = ['mediainfo', '--Output=JSON', filepath]
+	proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=False)
+	proc_out, _ = proc.communicate()
+
+	minfo = json.loads(proc_out)
+	extra = minfo['media']['track'][0]['extra']
+	if (('IsTruncated' in extra) and (extra['IsTruncated'] == 'Yes') )
+		print("\tFile \"{}\" exist but incomplete. Will resume".format(filepath))
+		return False # because file exist but not
+
+	smap = vid_meta['select_map'][0]
+	for track in minfo['media']['track']:
+		if(track['@type'] == 'Video'):
+			res = track['Height']
+		if(track['@type'] == 'General'):
+			duration = float(track['Duration'])
+
+	if(res == smap['res'] and duration > vid_meta['play_length']*0.98):
+		print("\tFile \"{}\" exist. Skipping ...".format(filepath))
+		return True
+
+	return False	# finally no exact matching file is found. download again!
+
 def download_streams(vidmeta, folder):
 	global vid
 	vid = vidmeta['vid']
@@ -148,8 +177,13 @@ def download_streams(vidmeta, folder):
 	title = clean_up_title(vidmeta['title'])
 	uid = vidmeta['vid']
 	select_map = vidmeta['select_map']
-	out_fmt = "mp4"
+
+	out_fmt = select_map[0]['fmt'] if(len(select_map)>0 and 'fmt' in select_map[0]) else "mp4"
+	outfile = folder.rstrip('/')+"/"+str(title)+"_-_"+str(uid)+"."+out_fmt
  
+	if(check_if_downloaded(outfile,vidmeta)):
+		return
+
 	separated = 1; 	# Assume sepeated content by default. If not, no need to merge
 	temp_files = dict();
 	for smap in select_map:
@@ -159,7 +193,7 @@ def download_streams(vidmeta, folder):
 		if(media == "caption"):
 			continue
 		elif(media == "audio-video"):
-			outfile = filename = folder.rstrip('/')+"/"+str(title)+"_-_"+str(uid)+"."+str(smap['fmt'])
+			filename = outfile
 			separated = 0;
 		else:
 			filename = folder.rstrip('/')+"/"+str(uid)+"."+str(smap['media'])+"."+str(smap['fmt'])
@@ -176,7 +210,6 @@ def download_streams(vidmeta, folder):
 		logr.debug("%sTime taken %s\n---------------------------------",msg,str(t1-t0))
 	
 	if(separated == 1):
-		outfile = folder.rstrip('/')+"/"+str(title)+"_-_"+str(uid)+"."+out_fmt
 		combine_streams(temp_files,outfile,1)
 
 	logr.info("\t[Outfile] '%s'",outfile)

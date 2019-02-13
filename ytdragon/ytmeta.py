@@ -142,6 +142,7 @@ def parse_watch_page(wpage):
 		mins = int(int(args['length_seconds'])/60)
 		secs = int(args['length_seconds'])%60
 		vid_meta['duration']	= "{}:{:02d}".format(mins,secs)
+		vid_meta['play_length'] = int(args['length_seconds'])
 	else:
 		vid_meta['player_args'] = False
 		vid_meta['max_res'] 	= 0
