@@ -37,6 +37,12 @@ default_hurl = "https://"+default_host
 max_retries = 12	# roughly an hour
 vid = ""
 
+#Following things will be nicely available across functions without globals/multiple arguments
+# * logr
+# * vid
+# * folder_path
+# * policies/config if any!
+
 def convert_time_format(ftime):
     return '%02d:%02d:%02d,%03d'%(
         int(ftime/3600),
@@ -87,6 +93,8 @@ def dlProgress(count, blockSize, totalSize):
 	sys.stdout.flush()
 
 def check_if_downloaded(filepath, vid_meta):
+	global vid
+	logr = logging.getLogger(vid)
 
 	if not os.path.isfile(filepath): # No file hence continue to download
 		return False
@@ -95,29 +103,43 @@ def check_if_downloaded(filepath, vid_meta):
 	proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=False)
 	proc_out, _ = proc.communicate()
 
-	minfo = json.loads(proc_out)
-	extra = minfo['media']['track'][0]['extra']
-	if (('IsTruncated' in extra) and (extra['IsTruncated'] == 'Yes') ):
-		print("\tFile \"{}\" exist but incomplete. Will resume".format(filepath))
-		return False # because file exist but not
+	minfo = json.loads(proc_out)['media']
+	tracks = minfo['track'] if 'track' in minfo else []
+	extra = tracks[0]['extra'] if 'extra' in tracks[0]  else {}
+	if( ('IsTruncated' in extra) and (extra['IsTruncated'] == 'Yes') ):
+		logr.info("\tFile \"{}\" exist but incomplete. Will resume".format(filepath))
+		return False # because file exist but not complete
 
-	smap = vid_meta['select_map'][0]
-	for track in minfo['media']['track']:
-		if(track['@type'] == 'Video'):
-			res = track['Height']
-		if(track['@type'] == 'General'):
-			duration = float(track['Duration'])
+	if("std" in vid_meta["select_map"]):
+		smap = vid_meta["select_map"]["std"]
+	elif("adp" in vid_meta["select_map"]):
+		smap = vid_meta['select_map']["adp"][0]	# assuming that video is always first!
+	else:
+		return False	# error!
 
-	if(res == smap['res'] and duration > vid_meta['play_length']*0.98):
-		print("\tFile \"{}\" exist. Skipping ...".format(filepath))
-		return True
+	res = duration = 0
+	for track in tracks:
+		if(track['@type']  == 'General'):
+			duration  = float(track['Duration'])
+		if(track['@type']  == 'Video'):
+			res = int(track['Height'])
 
-	return False	# finally no exact matching file is found. download again!
+	if( (res == smap['res']) and (duration > vid_meta['play_length']*0.98)):
+		logr.info("\tFile \"{}\" exist. Skipping ...".format(filepath))
+		return True	# Got it already
+	else:
+		dur_err="Dur: {}->{}".format(duration,vid_meta['play_length']) if(duration > vid_meta['play_length']*0.98) else ""
+		res_err = "Res: {}->{}".format(res,smap['res']) if (res != smap['res']) else ""
+		logr.info("\tFile \"{}\" exist with mismatch {} {}. Will download again".format(filepath,res_err,dur_err))
+		return False	# Download again!
 
-def download_stream(url,filename):
+	return False	# you should never be here!
+
+def download_stream(smap_string,url,filename):
 	global vid
 	logr = logging.getLogger(vid)
 
+	logr.info("\t%s",smap_string)
 	logr.debug("\tSaving URL: %s\n\tto %s",url,filename)
 	t0 = datetime.datetime.now()
 	socket.setdefaulttimeout(120)
@@ -146,80 +168,70 @@ def combine_streams(temp_files,outfile,remove_temp_files):
 	else:
 		logr.error("\n\tFFMPEG conversion completed with error code. Not deleting the downloaded files.")
 		remove_temp_files = 0
-		
+
 	if(remove_temp_files):
 		logr.debug("Removing temp files")
 		for key in temp_files:
 			logr.debug("%s file: %s",key,temp_files[key])
 			os.remove(temp_files[key])
 
-def download_caption(vidmeta, folder):
+def download_caption(smap, filename):
 	global vid
 	logr = logging.getLogger(vid)
 
-	title = clean_up_title(vidmeta['title'])
-	uid = vidmeta['vid']
-	select_map = vidmeta['select_map']
-	path = folder.rstrip('/')+"/"+str(title)+"_-_"+str(uid)+"."+"srt"
+	if("media" not in smap) or (smap["media"] != "caption"):
+		return -1
 
-	for smap in select_map:
-		media = smap['media']
-		if(media == "caption"):
-			capDom = minidom.parse(
-			urllib.request.urlopen(smap['url'])
-			)
-			texts = capDom.getElementsByTagName('text')
-			hp = HTMLParser()
-			f = open(path,'w')
-			for i, text in enumerate(texts):
-				fstart = float(text.getAttribute('start'))
-				start = convert_time_format(fstart)
-				fdur = float(text.getAttribute('dur'))
-				dur = convert_time_format(fstart+fdur)
-				t = text.childNodes[0].data
-				f.write('%d\n'%(i))
-				f.write('%s --> %s\n'%(start, dur))
-				f.write(hp.unescape(t).encode(sys.getfilesystemencoding()))
-				f.write('\n\n')
-			logr.info("\t%s\n\tSaved in: => %s",smap_to_str(smap),path)
-			break;
+	capDom = minidom.parse(urllib.request.urlopen(smap['url']))
+	texts = capDom.getElementsByTagName('text')
+	hp = HTMLParser()
+	f = open(filename,'w')
+	for i, text in enumerate(texts):
+		fstart = float(text.getAttribute('start'))
+		start = convert_time_format(fstart)
+		fdur = float(text.getAttribute('dur'))
+		dur = convert_time_format(fstart+fdur)
+		t = text.childNodes[0].data
+		f.write('%d\n'%(i))
+		f.write('%s --> %s\n'%(start, dur))
+		f.write(hp.unescape(t).encode(sys.getfilesystemencoding()))
+		f.write('\n\n')
+	logr.info("\t%s\n\tSaved in: => %s",smap_to_str(smap),filename)
+
+	return
 
 def download_streams(vidmeta, folder):
 	global vid
 	vid = vidmeta['vid']
 	logr = logging.getLogger(vid)
 
-	title = clean_up_title(vidmeta['title'])
-	uid = vidmeta['vid']
 	select_map = vidmeta['select_map']
-
-	out_fmt = select_map[0]['fmt'] if(len(select_map)>0 and 'fmt' in select_map[0]) else "mp4"
-	outfile = folder.rstrip('/')+"/"+str(title)+"_-_"+str(uid)+"."+out_fmt
+	out_fmt = select_map["out_fmt"]
+	outfile = os.path.join(folder,select_map["outfile"])
  
 	if(check_if_downloaded(outfile,vidmeta)):
 		return
 
-	separated = 1; 	# Assume sepeated content by default. If not, no need to merge
-	temp_files = dict();
-	for smap in select_map:
-		media = smap['media']
+	if("std" in select_map):
+		smap = select_map["std"]
+		download_stream(smap_to_str(smap),smap['url'],outfile)
+	elif("adp" in select_map):
+		temp_files = dict();
+		for smap in select_map["adp"]:
+			filename = os.path.join(folder,"{}.{}.{}".format(vid,smap['media'],smap['fmt']))
+			temp_files[smap["media"]] = filename
+			download_stream(smap_to_str(smap),smap['url'],filename)
+		combine_streams(temp_files,outfile,True)
+	else:
+		return -1	# Can't be here -> raise exception
 
-		if(media == "caption"):
-			continue
-		elif(media == "audio-video"):
-			filename = outfile
-			separated = 0;
-		else:
-			filename = folder.rstrip('/')+"/"+str(uid)+"."+str(smap['media'])+"."+str(smap['fmt'])
-			temp_files[media] = filename 
-
-		logr.info("\t%s",smap_to_str(smap))
-		download_stream(smap['url'],filename)
-
-	if(separated == 1):
-		combine_streams(temp_files,outfile,1)
-
+	# audio-video successfully downloaded!
 	logr.info("\t[Outfile] '%s'",outfile)
+	if(("caption" in select_map) and select_map["caption"]):
+		filename = folder.rstrip('/')+"/"+str(title)+"_-_"+str(uid)+"."+"srt"
+		download_caption(select_map["caption"],filename)
+
+	return 0
 
 def download_video(vid_item,folder):
 	global vid
@@ -258,12 +270,12 @@ def download_video(vid_item,folder):
 	logr.debug("= Available Streams: "+"="*25+"\n"+"\n".join(map(smap_to_str,sm)))
 
 	vidmeta['select_map'] = sl =  select_best_stream(vidmeta)
-	logr.debug("= Selected Streams: "+"="*25+"\n"+"\n".join(map(smap_to_str,sl))+"\n")
+	logr.debug("= Selected Streams: "+"="*25+"\n"+"\n".join(map(smap_to_str,sl.values()))+"\n")
 
 	# stream_map, select_map can be public elements so that they can be logged and print outside.
 	logr.info("\tTitle:'%s'\n\tAuthor:'%s'",vidmeta['title'],vidmeta['author'])
 	download_streams(vidmeta,folder)
-	download_caption(vidmeta,folder)
+
 	logr.info("\tFetch Complete @ %s ----------------",str(datetime.datetime.now()))
 
 	return 1

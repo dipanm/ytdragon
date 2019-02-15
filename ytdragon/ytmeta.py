@@ -9,7 +9,7 @@ from urllib import parse as urlparse
 import pprint 
 import logging
 
-from ytdragon.ytutils import print_pretty
+from ytdragon.ytutils import print_pretty, write_to_file
 from ytdragon.ytpage import get_page
 
 ### User Config Variable ----------------------------
@@ -47,6 +47,8 @@ def create_default_vid_meta(vid="",title=""): 	# This are default must have valu
 
 ##--- support functions -------------------------------------------------------
 def smap_to_str(s):
+	if('media' not in s):
+		return '-'
 	if s['media'] == "audio-video":
 		return '[%s] %s (%s);%s'%(s['media'],s['quality'],str(s['res']),s['type']) 
 	if s['media'] == "video":
@@ -142,7 +144,7 @@ def parse_watch_page(wpage):
 		mins = int(int(args['length_seconds'])/60)
 		secs = int(args['length_seconds'])%60
 		vid_meta['duration']	= "{}:{:02d}".format(mins,secs)
-		vid_meta['play_length'] = int(args['length_seconds'])
+		vid_meta['play_length'] = float(args['length_seconds'])
 	else:
 		vid_meta['player_args'] = False
 		vid_meta['max_res'] 	= 0
@@ -188,7 +190,7 @@ def parse_stream_map(args):
 	if( (len(encoded_map) ==0) and (len(encoded_map_adp) == 0)):
 		return None 
 
-	res_index = {'small':'240','medium':'360','high':'480','large':'480','hd720':'720','1440p':'1440','1080p':'1080'} 
+	res_index = {'small':240,'medium':360,'high':480,'large':480,'hd720':720,'1440p':1440,'1080p':1080} 
 
 	fmt_stream_map = list()
 	if (len(encoded_map) > 0) :

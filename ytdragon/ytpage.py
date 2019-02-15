@@ -113,6 +113,7 @@ def get_page(pagetype,uid):
 		url = default_hurl+url_map[pagetype].replace("<ID>",uid) 
 
 	response = urllib.request.urlopen(url)
+	page['uid'] = uid
 	page['url'] = url
 	page['code'] = response.getcode() 
 	page['contents'] = response.read().decode('utf-8') 
