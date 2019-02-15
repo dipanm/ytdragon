@@ -86,6 +86,49 @@ def dlProgress(count, blockSize, totalSize):
 	sys.stdout.write("\r\tDownload progress: %s %d%% of %d MB " % (cstr,percent, totalSize/1000/1000) )
 	sys.stdout.flush()
 
+def check_if_downloaded(filepath, vid_meta):
+
+	if not os.path.isfile(filepath): # No file hence continue to download
+		return False
+
+	cmd = ['mediainfo', '--Output=JSON', filepath]
+	proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=False)
+	proc_out, _ = proc.communicate()
+
+	minfo = json.loads(proc_out)
+	extra = minfo['media']['track'][0]['extra']
+	if (('IsTruncated' in extra) and (extra['IsTruncated'] == 'Yes') ):
+		print("\tFile \"{}\" exist but incomplete. Will resume".format(filepath))
+		return False # because file exist but not
+
+	smap = vid_meta['select_map'][0]
+	for track in minfo['media']['track']:
+		if(track['@type'] == 'Video'):
+			res = track['Height']
+		if(track['@type'] == 'General'):
+			duration = float(track['Duration'])
+
+	if(res == smap['res'] and duration > vid_meta['play_length']*0.98):
+		print("\tFile \"{}\" exist. Skipping ...".format(filepath))
+		return True
+
+	return False	# finally no exact matching file is found. download again!
+
+def download_stream(url,filename):
+	global vid
+	logr = logging.getLogger(vid)
+
+	logr.debug("\tSaving URL: %s\n\tto %s",url,filename)
+	t0 = datetime.datetime.now()
+	socket.setdefaulttimeout(120)
+	fname, msg = urllib.request.urlretrieve(url,filename,reporthook=dlProgress)
+	t1 = datetime.datetime.now()
+	sys.stdout.write("\r")
+	sys.stdout.flush()
+	logr.debug("%sTime taken %s\n---------------------------------",msg,str(t1-t0))
+
+	return
+
 def combine_streams(temp_files,outfile,remove_temp_files):
 	global vid
 	logr = logging.getLogger(vid)
@@ -141,34 +184,6 @@ def download_caption(vidmeta, folder):
 			logr.info("\t%s\n\tSaved in: => %s",smap_to_str(smap),path)
 			break;
 
-def check_if_downloaded(filepath, vid_meta):
-
-	if not os.path.isfile(filepath): # No file hence continue to download
-		return False
-
-	cmd = ['mediainfo', '--Output=JSON', filepath]
-	proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=False)
-	proc_out, _ = proc.communicate()
-
-	minfo = json.loads(proc_out)
-	extra = minfo['media']['track'][0]['extra']
-	if (('IsTruncated' in extra) and (extra['IsTruncated'] == 'Yes') )
-		print("\tFile \"{}\" exist but incomplete. Will resume".format(filepath))
-		return False # because file exist but not
-
-	smap = vid_meta['select_map'][0]
-	for track in minfo['media']['track']:
-		if(track['@type'] == 'Video'):
-			res = track['Height']
-		if(track['@type'] == 'General'):
-			duration = float(track['Duration'])
-
-	if(res == smap['res'] and duration > vid_meta['play_length']*0.98):
-		print("\tFile \"{}\" exist. Skipping ...".format(filepath))
-		return True
-
-	return False	# finally no exact matching file is found. download again!
-
 def download_streams(vidmeta, folder):
 	global vid
 	vid = vidmeta['vid']
@@ -187,7 +202,6 @@ def download_streams(vidmeta, folder):
 	separated = 1; 	# Assume sepeated content by default. If not, no need to merge
 	temp_files = dict();
 	for smap in select_map:
-		url = smap['url']
 		media = smap['media']
 
 		if(media == "caption"):
@@ -200,15 +214,8 @@ def download_streams(vidmeta, folder):
 			temp_files[media] = filename 
 
 		logr.info("\t%s",smap_to_str(smap))
-		logr.debug("\tSaving URL: %s\n\tto %s",smap['url'],filename)
-		t0 = datetime.datetime.now()
-		socket.setdefaulttimeout(120)
-		fname, msg = urllib.request.urlretrieve(url,filename,reporthook=dlProgress)
-		t1 = datetime.datetime.now()
-		sys.stdout.write("\r")
-		sys.stdout.flush()
-		logr.debug("%sTime taken %s\n---------------------------------",msg,str(t1-t0))
-	
+		download_stream(smap['url'],filename)
+
 	if(separated == 1):
 		combine_streams(temp_files,outfile,1)
 
