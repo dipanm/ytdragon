@@ -1,11 +1,19 @@
 #--------------------------------------------------------------------------------------------
 # Wish list 
 
-## THE BIG MIGRATION: 
-#	- deal with any UNICODE strings anywhere.  [works under python3?]
-# 	- use right mechanism for HTTP downloads. 
-#	- geting page, streams and captions all have different types of download functions. Generalize!
-#	- CLASSES! - convert all stuff in classes. Then apply inheritance per source
+## General
+#	- list control - follow list, pause, stop and resume post what is finished. 
+#	- instead of pretty print. Video meta can be explained in more human readable format. 
+#	- in case of multiple parallel downloads, the current \r funda won't work. So need central reporting engine.
+# 	- file issues in git for well defined items. 
+#	- prepare readme - specially for explaining usage and download_ref. 
+#	- specify dependencies -e.g. certifi 
+#	- we have v= vid= video= ,,,too many optinos to do same. so need to get rid of some options.
+#	- save user/channel by playlist
+#	- preserve comments (inline as well as full) in yl.
+#	- make ytdownload or ytfetch and unify all apps.
+#	- NEW REFS: Revise refrence short-hand notation keeping in mind all other sites.
+#	- add bitrate under progress bar 
 
 ## Reliable Download:
 #	- create your own powerful downloader which can go chunk-by-chunk with better control. 
@@ -13,6 +21,8 @@
 #	- deal with network failures. -- retry, wait-n-resume
 #	- deal with resume on socket. (resume partial downloads) 
 #	- network reconnect should re-establish things [ start partial download from where it was left]
+#	- partial download based on number of bytes already downloaded (either in the a-v file or individual compoents)
+#	- if file is already a combined muxed, compare based on duration rather than bytes to avoid repeat downloard
 #	- parallel thread downloading 
 #	- If youtube throws 404/403 - in actual downloads. it should not proceed like a normal flow. Exception should be handled. [ Done! ]
 #	- Deal with signatured streams that otherwise throws 403 (e.g. '-RMD88DNaGk') 
@@ -41,6 +51,15 @@
 #	- maintain csv generator that can keep the trace. 
 #	- ask if the file to be downloaded already exists
 `
+## Implicit/smart behaviror
+#	- mkdir if folder for -f doesn't exist. 
+#	- don't say 'Enjoy the video' when there is no download. [DONE]
+#	- Resume incomplete downloads from where they were left 
+#	- capture critical stuff and do clean exit when user presses Ctr+C 
+#	- '/' is earased from title because it is not allowed in a file name. However it should be replace by some char not earased.
+#	- default folder name is ./ But it can also be title of playlist or owner_name etc. for muliple videos
+#	- presss ^+C first should pause and ask user if any current download needs to stop or ytdragon should exit.
+
 ## Generic Config and post processing:
 #	- make config.py to access all configs (editable by users) which works as defaults 
 #	- generic methods/ or customzable file titles. 
@@ -55,6 +74,7 @@
 #	-   %R -> res %I -> id %S -> site name (youtube) %N -> sequence number (in list) 
 #	- all configuration should be modifiable from commandline args also. 
 #	- support all types of youtube URLs 
+#	- allow to download only audio - (for music) 
 
 ## .yl file format and power fetch:
 #	- now the .yl in turn can have references to full channel, playlist etc. expand all of them before download 
@@ -65,16 +85,23 @@
 #	- download channels --by-playlist - so will keep each playlist in different subfolder 
 #	- preserve COMMENTS in original .yl file if extracting again. 
 # 	- by default making .yl to .yl again -> the tab limited fields can be erased. Everything written post # should be preserved. 
-#		- this way repeated .yl to .yl will not add repeated columns, and also will not erease user notes. 
+#	- this way repeated .yl to .yl will not add repeated columns, and also will not erease user notes. 
 #	- create .yl (or equivalent) as a result of download of list 
 #	-  meta attrib should download size of file / add in .yl 
+#	- download list partially using filter such as names~=/regx/ OR quality=x OR duration>/< T
+#	- use search string/URL as list and extract to .yl or fetch
 
-## Beyond youtube:
-#	- download from Dailymotion
-#	- download from vimeo
-#	- download from these sites including playlists/ channels. 
-#	- download from openload.co 
-#	- extract listing from ihavenotv 
+## Command line arguments
+#	- if -o 'filename' supplied AFTER the URL_REF then it doesn't take 
+#	- -n switch to specify how many max videos to download. download only first 5/10 video rather than full list.
+#	- the extract script should go away and should become --info 
+#	- supply -a to append in existing list. 
+#	- supply --skip-till <vid> to skill till a point (useful till auto skip is not present)
+#	- supply --stop-at <vid> to stop downloading till a point. 
+#	- supply --min-res <res> to download all above certain resolution
+
+## Big Ideas:
+#	- make it interactive shell? i.e. commands (same as args) can be given while work is going on. Press Ctr+C to interrupt
 
 # Smart Downloads:	- OK these are huge - work but might as well WISH 
 #	- collect all meta tags og:video:tag. 
@@ -82,27 +109,14 @@
 #	- other form of grouping is, in a given channel - if parts of video are in playlist form make that a group. 
 #	- similarly "N Grams" in title - "How stuff works - x", "How stuff works - y" etc. can be grouped. 
 
-## General
-#	- mkdir if folder for -f doesn't exist. 
-#	- don't say 'Enjoy the video' when there is no download. [DONE]
-#	- -n switch to specify how many max videos to download. download only first 5/10 video rather than full list.
-#	- Resume incomplete downloads from where they were left 
-#	- capture critical stuff and do clean exit when user presses Ctr+C 
-#	- list control - follow list, pause, stop and resume post what is finished. 
-#	- make it interactive shell? i.e. commands can be given while work is going on. Press Ctr+C to interrupt
-#	- instead of pretty print. Video meta can be explained in more human readable format. 
-#	- in case of multiple parallel downloads, the current \r funda won't work. So need central reporting engine.
-# 	- file issues for well defined items. 
-#	- prepare readme - specially for explaining usage and download_ref. 
-#	- specify dependencies -e.g. certifi 
-#	- if -o 'filename' supplied AFTER the URL_REF then it doesn't take 
-#	- '/' is earased from title because it is not allowed in a file name. However it should be replace by some char not earased.
-#	- default folder name is ./ But it can also be title of playlist or owner_name etc. for muliple videos
-#	- we have v= vid= video= ,,,too many optinos to do same. so need to get rid of some options.
-#	- save user/channel by playlist
-#	- preserve comments (inline as well as full) in yl.
-#	- make ytdownload or ytfetch and unify all apps.
-#	- NEW REFS: Revise refrence short-hand notation keeping in mind all other sites.
+## Beyond youtube:
+#	- download from Dailymotion
+#	- download from vimeo
+#	- download from these sites including playlists/ channels. 
+#	- download from openload.co 
+#	- list maker for: ihavenotv, topdocumentaryfilms.com, documentarytube, docuwiki.net, 
+#		- documentaryheaven, cosmolearning, documentary.net
+#	- Courses - MIT, Stanford, Coursera, edX
 
 #----------------------------------------------------------------------------------------------------
 # Code TODO 
@@ -115,9 +129,21 @@
 #	- use of many 'prints' is not clean - convert it to log functions 
 #	- make all stuff as classes.
 #	- vmeta is very clumsy = it has two layers v[xxx] attribs and v[vmeta][xxx] attribs with quite an overlap. clean this.
+#	- video item ~ should be a CLASS! 
 #	- finally logging is no loger need to be as dense as it was required and logging as we do might be unclean for external users. fix
 #	- simplify ytmeta. Single function with power of regex should be able to decode any URL, category and site
 #	- extract has no additional functionality now. convert this into swith --extract under ./fetch 
+#	- handle /usr/bin/python3 vs /usr/local/bin/python3 
+#	- print on consol, how many Gb downloaded and how many files with total play_duration. How many failed.
+#	- captions are no longer working! Fix it soon :(
+#	- if no available smap is available (may be as per criteria of config) then raise exception
+
+## THE BIG MIGRATION: 
+#	- deal with any UNICODE strings anywhere.  [works under python3?]
+# 	- use right mechanism for HTTP downloads. 
+#	- geting page, streams and captions all have different types of download functions. Generalize!
+#	- CLASSES! - convert all stuff in classes. Then apply inheritance per source
+#	- Migrate this wishlist in issues on Github
 
 # New naming conventions:
 #	- better name for project!
