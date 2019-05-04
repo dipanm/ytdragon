@@ -57,7 +57,7 @@ def smap_to_str(s):
 		return '[%s] %s kbps;%s'%(s['media'],int(s['bitrate'])/1024,s['type']) 
 	if s['media'] == "caption":
 		return '[%s] %s, %s :%s'%(s['media'],s['lang'],s['fmt'],s['name']) 
-	
+
 def extract_player_args(script): 
 	player_script = ""
 
@@ -107,8 +107,10 @@ def parse_watch_page(wpage):
 	# populate the attributes-
 	# TODO : Things break when you supply incorrect vid. So that should have been handled earlier itself.
 	# 	and it should function here gracefully here as well in case some page is broken.
-	vid_meta['author'] 	= " ".join(map(str.strip, tree.xpath("//div[@class='yt-user-info']//text()"))).strip()
-	vid_meta['author_url'] 	= default_hurl+tree.xpath("//div[@class='yt-user-info']/a/@href")[0]
+	auth_div = "//div[@class='yt-user-info']"
+	vid_meta['author'] 	= " ".join(map(str.strip, tree.xpath(auth_div+"//text()"))).strip()
+	auth_href = tree.xpath(auth_div+"/a/@href")
+	vid_meta['author_url'] 	= default_hurl+auth_href[0] if len(auth_href)>0 else ""
 	vid_meta['keywords'] 	= tree.xpath("//meta[@name='keywords']/@content")[0].split(',')
 
 	for k in prop_keys:

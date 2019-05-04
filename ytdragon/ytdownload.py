@@ -143,6 +143,7 @@ def download_stream(smap_string,url,filename):
 	logr.debug("\tSaving URL: %s\n\tto %s",url,filename)
 	t0 = datetime.datetime.now()
 	socket.setdefaulttimeout(120)
+	print("\n--------\n",url,"\n--------\n")
 	fname, msg = urllib.request.urlretrieve(url,filename,reporthook=dlProgress)
 	t1 = datetime.datetime.now()
 	sys.stdout.write("\r")
@@ -206,11 +207,11 @@ def download_streams(vidmeta, folder):
 	logr = logging.getLogger(vid)
 
 	select_map = vidmeta['select_map']
-	out_fmt = select_map["out_fmt"]
-	outfile = os.path.join(folder,select_map["outfile"])
+	#out_fmt = select_map["out_fmt"]
+	#outfile = os.path.join(folder,select_map["outfile"])
  
-	if(check_if_downloaded(outfile,vidmeta)):
-		return
+	#if(check_if_downloaded(outfile,vidmeta)):
+	#	return
 
 	if("std" in select_map):
 		smap = select_map["std"]
@@ -238,45 +239,78 @@ def download_video(vid_item,folder):
 	vid = vid_item['vid']
 	logr = setup_vid_logger(vid)
 
-	if 'vmeta' in vid_item:
-		vidmeta = vid_item['vmeta']
-	else:
-		try:
+	try:
+		if 'vmeta' in vid_item:
+			vidmeta = vid_item['vmeta']
+		else:
 			vidmeta = load_video_meta(vid_item['vid'])
-		except ytd_exception_meta as e:
-			if('title' in e.vidmeta):
-				logr.info("\tTitle:'%s'",e.vidmeta['title'])
-			if('author' in e.vidmeta):
-				logr.info("\tAuthor:'%s'",e.vidmeta['author'])
-			if (e.errtype == "PAGE_FETCH_ERR"):
-				logr.critical("{} :{}".format(e.errmsg,e.msgstr))
-			if (e.errtype == "YOUTUBE_ERROR"):
-				logr.critical("{}".format(e.errmsg))
-				logr.info("-"*45+"\n"+e.msgstr+"\n"+"-"*45)
-			if (e.errtype == "BAD_PAGE"):
-				logr.critical(e.errmsg)
-				print_pretty(logr,"Parsing failed: vid_meta "+"="*20,e.vidmeta)
-			if (e.errtype == "NO_STREAMS"):
-				logr.critical(e.errmsg)
-				print_pretty(logr,"Parsing failed: vid_meta "+"="*20,e.vidmeta)
+		print_pretty(logr,"Parsing successful: vid_meta "+"="*20,vidmeta)
+		print_pretty(logr,"Available streams: "+"="*25,vidmeta['stream_map'])
 
-			if(deep_debug):
-				write_to_file(vid+".html",e.page['contents'])
-			return 0
+		vidmeta['select_map'] = select_map =  select_best_stream(vidmeta)
+		print_pretty(logr,"Selected streams: "+"="*25,vidmeta['select_map'])
 
-	print_pretty(logr,"Parsing successful: vid_meta "+"="*20,vidmeta)
-	smap = vidmeta['stream_map']
-	sm = smap['std'] + smap['adp_v'] + smap['adp_a'] + smap['caption']
-	logr.debug("= Available Streams: "+"="*25+"\n"+"\n".join(map(smap_to_str,sm)))
+		logr.info("\tTitle:'%s'\n\tAuthor:'%s'",vidmeta['title'],vidmeta['author'])
 
-	vidmeta['select_map'] = sl =  select_best_stream(vidmeta)
-	logr.debug("= Selected Streams: "+"="*25+"\n"+"\n".join(map(smap_to_str,sl.values()))+"\n")
+		outfile = os.path.join(folder,select_map["outfile"])
+		if(check_if_downloaded(outfile,vidmeta)):
+			return 1
+
+		#download_streams(vidmeta,folder)
+		if("std" in select_map):
+			smap = select_map["std"]
+			download_stream(smap_to_str(smap),smap['url'],outfile)
+		elif("adp" in select_map):
+			temp_files = dict();
+			for smap in select_map["adp"]:
+				filename = os.path.join(folder,"{}.{}.{}".format(vid,smap['media'],smap['fmt']))
+				temp_files[smap["media"]] = filename
+				download_stream(smap_to_str(smap),smap['url'],filename)
+			combine_streams(temp_files,outfile,True)
+		else:
+			logr.error("No available streams for download")
+			return 0	# Can't be here -> raise exception
+
+		logr.info("\t[Outfile] '%s'",outfile)
+		if(("caption" in select_map) and select_map["caption"]):
+			filename = folder.rstrip('/')+"/"+str(title)+"_-_"+str(uid)+"."+"srt"
+			download_caption(select_map["caption"],filename)
+
+		logr.info("\tFetch Complete @ %s ----------------",str(datetime.datetime.now()))
+
+	except ytd_exception_meta as e:
+		if('title' in e.vidmeta):
+			logr.info("\tTitle:'%s'",e.vidmeta['title'])
+		if('author' in e.vidmeta):
+			logr.info("\tAuthor:'%s'",e.vidmeta['author'])
+		if (e.errtype == "PAGE_FETCH_ERR"):
+			logr.critical("{} :{}".format(e.errmsg,e.msgstr))
+		if (e.errtype == "YOUTUBE_ERROR"):
+			logr.critical("{}".format(e.errmsg))
+			logr.info("-"*45+"\n"+e.msgstr+"\n"+"-"*45)
+		if (e.errtype == "BAD_PAGE"):
+			logr.critical(e.errmsg)
+			print_pretty(logr,"Parsing failed: vid_meta "+"="*20,e.vidmeta)
+		if (e.errtype == "NO_STREAMS"):
+			logr.critical(e.errmsg)
+			print_pretty(logr,"Parsing failed: vid_meta "+"="*20,e.vidmeta)
+
+		if(deep_debug):
+			write_to_file(vid+".html",e.page['contents'])
+		return 0
+
+	#smap = vidmeta['stream_map']
+	#sm = smap['std'] + smap['adp_v'] + smap['adp_a'] + smap['caption']
+	#logr.debug("= Available Streams: "+"="*25+"\n"+"\n".join(map(smap_to_str,sm)))
+
+	#vidmeta['select_map'] = sl =  select_best_stream(vidmeta)
+	#logr.debug("= Selected Streams: "+"="*25+"\n"+"\n".join(map(smap_to_str,sl.values()))+"\n")
 
 	# stream_map, select_map can be public elements so that they can be logged and print outside.
-	logr.info("\tTitle:'%s'\n\tAuthor:'%s'",vidmeta['title'],vidmeta['author'])
-	download_streams(vidmeta,folder)
+	#logr.info("\tTitle:'%s'\n\tAuthor:'%s'",vidmeta['title'],vidmeta['author'])
+	#download_streams(vidmeta,folder)
 
-	logr.info("\tFetch Complete @ %s ----------------",str(datetime.datetime.now()))
+	#logr.info("\tFetch Complete @ %s ----------------",str(datetime.datetime.now()))
 
 	return 1
 
