@@ -7,7 +7,6 @@ import sys, traceback
 import socket
 import getopt
 import logging
-import subprocess
 from io import StringIO
 import string
 import ssl
@@ -124,7 +123,7 @@ def download_stream(smap_string,url,filename):
 	logr.debug("\tSaving URL: %s\n\tto %s",url,filename)
 	t0 = datetime.datetime.now()
 	socket.setdefaulttimeout(120)
-	print("\n--------\n",url,"\n--------\n")
+	#print("\n--------\n",url,"\n--------\n")
 	fname, msg = urllib.request.urlretrieve(url,filename,reporthook=dlProgress)
 	t1 = datetime.datetime.now()
 	sys.stdout.write("\r")
