@@ -61,15 +61,18 @@ def select_best_stream(vid_item):
 	if(max_res_adp > max_res_std):
 		select_map["adp"] = [ stream_map['adp_v'][0], stream_map['adp_a'][0]]
 		select_map["out_fmt"] = stream_map['adp_v'][0]['fmt']
+		quality = max_res_adp
 	else:
 		select_map["std"] = stream_map['std'][0]
 		select_map["out_fmt"] = stream_map['std'][0]['fmt']
+		quality = max_res_std
 
 	# create outfile name here, becaues in future, it will come from config/policy
 	#  in that case it will generate filenames as per user's way of formatting
 	title = clean_up_title(vid_item['title'])
 	select_map["outfile"] = str(title)+"_-_"+str(vid)+"."+select_map["out_fmt"]
 	select_map["caption"] = select_captions(vid,stream_map['caption'])
+	select_map["quality"] = quality
 
 	return select_map
 

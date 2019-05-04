@@ -19,7 +19,7 @@ import json
 from xml.dom import minidom
 from html.parser import HTMLParser
 
-from ytdragon.ytutils import clean_up_title, write_to_file, print_pretty
+from ytdragon.ytutils import clean_up_title, write_to_file, print_pretty, get_media_info
 from ytdragon.ytmeta import smap_to_str, load_video_meta, ytd_exception_meta
 from ytdragon.ytselect import select_best_stream
 
@@ -92,44 +92,25 @@ def dlProgress(count, blockSize, totalSize):
 	sys.stdout.write("\r\tDownload progress: %s %d%% of %d MB " % (cstr,percent, totalSize/1000/1000) )
 	sys.stdout.flush()
 
-def check_if_downloaded(filepath, vid_meta):
+def check_if_downloaded(filepath, meta):
 	global vid
 	logr = logging.getLogger(vid)
 
 	if not os.path.isfile(filepath): # No file hence continue to download
 		return False
 
-	cmd = ['mediainfo', '--Output=JSON', filepath]
-	proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=False)
-	proc_out, _ = proc.communicate()
-
-	minfo = json.loads(proc_out)['media']
-	tracks = minfo['track'] if 'track' in minfo else []
-	extra = tracks[0]['extra'] if 'extra' in tracks[0]  else {}
-	if( ('IsTruncated' in extra) and (extra['IsTruncated'] == 'Yes') ):
+	minfo = get_media_info(filepath)
+	if minfo['IsTruncated']:
 		logr.info("\tFile \"{}\" exist but incomplete. Will resume".format(filepath))
 		return False # because file exist but not complete
 
-	if("std" in vid_meta["select_map"]):
-		smap = vid_meta["select_map"]["std"]
-	elif("adp" in vid_meta["select_map"]):
-		smap = vid_meta['select_map']["adp"][0]	# assuming that video is always first!
-	else:
-		return False	# error!
+	dur_err="Dur: {}->{}".format(minfo['duration'],meta['duration']) if(minfo['duration'] < meta['duration']*0.98) else ""
+	res_err = "Res: {}->{}".format(minfo['res'],meta['res']) if (minfo['res'] != meta['res']) else ""
 
-	res = duration = 0
-	for track in tracks:
-		if(track['@type']  == 'General'):
-			duration  = float(track['Duration'])
-		if(track['@type']  == 'Video'):
-			res = int(track['Height'])
-
-	if( (res == smap['res']) and (duration > vid_meta['play_length']*0.98)):
+	if( dur_err == "" and res_err == ""):
 		logr.info("\tFile \"{}\" exist. Skipping ...".format(filepath))
 		return True	# Got it already
 	else:
-		dur_err="Dur: {}->{}".format(duration,vid_meta['play_length']) if(duration > vid_meta['play_length']*0.98) else ""
-		res_err = "Res: {}->{}".format(res,smap['res']) if (res != smap['res']) else ""
 		logr.info("\tFile \"{}\" exist with mismatch {} {}. Will download again".format(filepath,res_err,dur_err))
 		return False	# Download again!
 
@@ -201,40 +182,7 @@ def download_caption(smap, filename):
 
 	return
 
-def download_streams(vidmeta, folder):
-	global vid
-	vid = vidmeta['vid']
-	logr = logging.getLogger(vid)
-
-	select_map = vidmeta['select_map']
-	#out_fmt = select_map["out_fmt"]
-	#outfile = os.path.join(folder,select_map["outfile"])
- 
-	#if(check_if_downloaded(outfile,vidmeta)):
-	#	return
-
-	if("std" in select_map):
-		smap = select_map["std"]
-		download_stream(smap_to_str(smap),smap['url'],outfile)
-	elif("adp" in select_map):
-		temp_files = dict();
-		for smap in select_map["adp"]:
-			filename = os.path.join(folder,"{}.{}.{}".format(vid,smap['media'],smap['fmt']))
-			temp_files[smap["media"]] = filename
-			download_stream(smap_to_str(smap),smap['url'],filename)
-		combine_streams(temp_files,outfile,True)
-	else:
-		return -1	# Can't be here -> raise exception
-
-	# audio-video successfully downloaded!
-	logr.info("\t[Outfile] '%s'",outfile)
-	if(("caption" in select_map) and select_map["caption"]):
-		filename = folder.rstrip('/')+"/"+str(title)+"_-_"+str(uid)+"."+"srt"
-		download_caption(select_map["caption"],filename)
-
-	return 0
-
-def download_video(vid_item,folder):
+def download_content(vid_item,folder):
 	global vid
 	vid = vid_item['vid']
 	logr = setup_vid_logger(vid)
@@ -253,10 +201,9 @@ def download_video(vid_item,folder):
 		logr.info("\tTitle:'%s'\n\tAuthor:'%s'",vidmeta['title'],vidmeta['author'])
 
 		outfile = os.path.join(folder,select_map["outfile"])
-		if(check_if_downloaded(outfile,vidmeta)):
+		if(check_if_downloaded(outfile,{"duration": vidmeta['play_length'],"res":select_map['quality']})):
 			return 1
 
-		#download_streams(vidmeta,folder)
 		if("std" in select_map):
 			smap = select_map["std"]
 			download_stream(smap_to_str(smap),smap['url'],outfile)
@@ -299,19 +246,6 @@ def download_video(vid_item,folder):
 			write_to_file(vid+".html",e.page['contents'])
 		return 0
 
-	#smap = vidmeta['stream_map']
-	#sm = smap['std'] + smap['adp_v'] + smap['adp_a'] + smap['caption']
-	#logr.debug("= Available Streams: "+"="*25+"\n"+"\n".join(map(smap_to_str,sm)))
-
-	#vidmeta['select_map'] = sl =  select_best_stream(vidmeta)
-	#logr.debug("= Selected Streams: "+"="*25+"\n"+"\n".join(map(smap_to_str,sl.values()))+"\n")
-
-	# stream_map, select_map can be public elements so that they can be logged and print outside.
-	#logr.info("\tTitle:'%s'\n\tAuthor:'%s'",vidmeta['title'],vidmeta['author'])
-	#download_streams(vidmeta,folder)
-
-	#logr.info("\tFetch Complete @ %s ----------------",str(datetime.datetime.now()))
-
 	return 1
 
 #---------------------------------------------------------------
@@ -328,7 +262,7 @@ def download_with_retry(item,folder,index=0,retries=max_retries):
 		retry_str = "-try(%d)"%(r) if r>0 else ""
 		try:
 			logm.info("Downloading item %s [%s]: %s %s",index_str,item['vid'],str(datetime.datetime.now()),retry_str)
-			result = download_video(item,folder)
+			result = download_content(item,folder)
 			break;	# download successful
 
 		except urllib.error.HTTPError as e:

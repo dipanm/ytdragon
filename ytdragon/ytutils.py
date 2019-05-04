@@ -54,4 +54,27 @@ def print_pretty(logr,key,value,indent=0):
 		else:
 			logr.debug('\t' * (indent-1) + "[" + str(key) + "] : " + str(value))
 
+def get_media_info(filepath):
+        info = { 'IsTruncated': False, 'duration': 0.0, 'res': 0 }
+
+        cmd = ['mediainfo', '--Output=JSON', filepath]
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=False)
+        proc_out, _ = proc.communicate()
+
+        minfo = json.loads(proc_out)['media']
+        tracks = minfo['track'] if 'track' in minfo else []
+
+        extra = tracks[0]['extra'] if 'extra' in tracks[0]  else {}
+        if( ('IsTruncated' in extra) and (extra['IsTruncated'] == 'Yes') ):
+                info['IsTruncated'] = True
+
+        for track in tracks:
+                if(track['@type']  == 'General'):
+                        info['duration']  = float(track['Duration'])
+                if(track['@type']  == 'Video'):
+                        info['res'] = int(track['Height'])
+
+        info['tracks'] = tracks
+        return info
+
 
