@@ -4,6 +4,7 @@ import pprint
 import datetime
 import os
 import sys, traceback
+import subprocess
 import socket
 import getopt
 import logging
@@ -19,6 +20,7 @@ from xml.dom import minidom
 from html.parser import HTMLParser
 
 from ytdragon.utils import clean_up_title, write_to_file, print_pretty, get_media_info
+from ytdragon.http  import DlHttp
 from ytdragon.ytmeta import smap_to_str, load_video_meta, ytd_exception_meta
 from ytdragon.ytselect import select_best_stream
 
@@ -67,6 +69,7 @@ def setup_vid_logger(v_id):
 	return logr
 
 #==== Download Related funcitons ===============================================
+"""
 def dlProgress(count, blockSize, totalSize):
 	global vid
 	logm = logging.getLogger()
@@ -90,6 +93,7 @@ def dlProgress(count, blockSize, totalSize):
 			logr.debug("%s : %d%% - %d of %d MB",str(tnow),percent,(count*blockSize)/1000/1000,(totalSize/1000/1000))
 	sys.stdout.write("\r\tDownload progress: %s %d%% of %d MB " % (cstr,percent, totalSize/1000/1000) )
 	sys.stdout.flush()
+"""
 
 def check_if_downloaded(filepath, meta):
 	global vid
@@ -114,23 +118,6 @@ def check_if_downloaded(filepath, meta):
 		return False	# Download again!
 
 	return False	# you should never be here!
-
-def download_stream(smap_string,url,filename):
-	global vid
-	logr = logging.getLogger(vid)
-
-	logr.info("\t%s",smap_string)
-	logr.debug("\tSaving URL: %s\n\tto %s",url,filename)
-	t0 = datetime.datetime.now()
-	socket.setdefaulttimeout(120)
-	#print("\n--------\n",url,"\n--------\n")
-	fname, msg = urllib.request.urlretrieve(url,filename,reporthook=dlProgress)
-	t1 = datetime.datetime.now()
-	sys.stdout.write("\r")
-	sys.stdout.flush()
-	logr.debug("%sTime taken %s\n---------------------------------",msg,str(t1-t0))
-
-	return
 
 def combine_streams(temp_files,outfile,remove_temp_files):
 	global vid
@@ -185,6 +172,7 @@ def download_content(vid_item,folder):
 	global vid
 	vid = vid_item['vid']
 	logr = setup_vid_logger(vid)
+	dl = DlHttp(vid)
 
 	try:
 		if 'vmeta' in vid_item:
@@ -205,13 +193,13 @@ def download_content(vid_item,folder):
 
 		if("std" in select_map):
 			smap = select_map["std"]
-			download_stream(smap_to_str(smap),smap['url'],outfile)
+			dl.get_stream(smap_to_str(smap),smap['url'],outfile)
 		elif("adp" in select_map):
 			temp_files = dict();
 			for smap in select_map["adp"]:
 				filename = os.path.join(folder,"{}.{}.{}".format(vid,smap['media'],smap['fmt']))
 				temp_files[smap["media"]] = filename
-				download_stream(smap_to_str(smap),smap['url'],filename)
+				dl.get_stream(smap_to_str(smap),smap['url'],filename)
 			combine_streams(temp_files,outfile,True)
 		else:
 			logr.error("No available streams for download")
