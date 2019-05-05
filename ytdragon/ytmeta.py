@@ -9,7 +9,7 @@ from urllib import parse as urlparse
 import pprint 
 import logging
 
-from ytdragon.ytutils import print_pretty, write_to_file
+from ytdragon.utils import print_pretty, write_to_file
 from ytdragon.ytpage import get_page
 
 ### User Config Variable ----------------------------

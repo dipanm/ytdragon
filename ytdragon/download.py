@@ -18,7 +18,7 @@ import json
 from xml.dom import minidom
 from html.parser import HTMLParser
 
-from ytdragon.ytutils import clean_up_title, write_to_file, print_pretty, get_media_info
+from ytdragon.utils import clean_up_title, write_to_file, print_pretty, get_media_info
 from ytdragon.ytmeta import smap_to_str, load_video_meta, ytd_exception_meta
 from ytdragon.ytselect import select_best_stream
 

@@ -16,7 +16,7 @@ import certifi
 
 from xml.dom import minidom
 from html.parser import HTMLParser
-from ytdragon.ytutils import clean_up_title
+from ytdragon.utils import clean_up_title
 
 ### User Config Variable ----------------------------
 

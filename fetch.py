@@ -17,11 +17,11 @@ import certifi
 from xml.dom import minidom
 from html.parser import HTMLParser
 
-from ytdragon.ytutils import print_pretty
+from ytdragon.utils import print_pretty
 from ytdragon.ytpage import get_uid_from_ref
 from ytdragon.ytmeta import create_default_vid_meta
 from ytdragon.ytlist import load_list
-from ytdragon.ytdownload import download_with_retry, download_list
+from ytdragon.download import download_with_retry, download_list
 
 ### User Config Variable ----------------------------
 

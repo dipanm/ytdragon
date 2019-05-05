@@ -30,7 +30,7 @@ import multiprocessing as mp
 from xml.dom import minidom
 from html.parser import HTMLParser
 
-from ytdragon.ytutils import clean_up_title 
+from ytdragon.utils import clean_up_title 
 from ytdragon.ytpage  import get_uid_from_ref
 from ytdragon.ytlist  import load_list, save_list, print_list_stats
 
