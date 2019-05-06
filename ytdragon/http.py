@@ -3,6 +3,7 @@ import logging
 import datetime
 import socket
 import urllib
+import requests
 
 def dlProgress(count, blockSize, totalSize):
         #global vid
@@ -44,10 +45,30 @@ class DlHttp:
         t0 = datetime.datetime.now()
         socket.setdefaulttimeout(120)
         #print("\n--------\n",url,"\n--------\n")
-        fname, msg = urllib.request.urlretrieve(url,filename,reporthook=dlProgress)
+
+        r = requests.get(url, stream=True)
+        filesize = int(r.headers.get('content-length'))
+        self.logr.info("Status:{} Content-Type:{} TotalSize:{}".format(r.status_code,r.headers['Content-Type'],filesize))
+
+        # do this only if status = 200OK
+        received = 0
+        actual_size = 0
+        block_size = 1024*1024
+        with open(filename, 'wb') as fd:
+            for chunk in r.iter_content(chunk_size=block_size):
+                if chunk:
+                    actual_size += len(chunk)
+                    fd.write(chunk)
+                    received += 1
+                    dlProgress(received, block_size, filesize)
+                else:
+                    break
+                    self.logr.info("\nFile download complete size:received {}\n".format(actual_size))
+
+        #fname, msg = urllib.request.urlretrieve(url,filename,reporthook=dlProgress)
         t1 = datetime.datetime.now()
         sys.stdout.write("\r")
         sys.stdout.flush()
-        self.logr.debug("%sTime taken %s\n---------------------------------",msg,str(t1-t0))
+        self.logr.debug("Time taken %s\n---------------------------------",str(t1-t0))
 
         return
