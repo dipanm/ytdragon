@@ -1,19 +1,14 @@
 #--------------------------------------------------------------------------------------------
 # Wish list 
 
-## General
+## General/UI
 #	- list control - follow list, pause, stop and resume post what is finished. 
 #	- instead of pretty print. Video meta can be explained in more human readable format. 
 #	- in case of multiple parallel downloads, the current \r funda won't work. So need central reporting engine.
 # 	- file issues in git for well defined items. 
 #	- prepare readme - specially for explaining usage and download_ref. 
 #	- specify dependencies -e.g. certifi 
-#	- we have v= vid= video= ,,,too many optinos to do same. so need to get rid of some options.
-#	- save user/channel by playlist
-#	- preserve comments (inline as well as full) in yl.
 #	- make ytdownload or ytfetch and unify all apps.
-#	- NEW REFS: Revise refrence short-hand notation keeping in mind all other sites.
-#	- add bitrate under progress bar 
 
 ## Reliable Download:
 #	- create your own powerful downloader which can go chunk-by-chunk with better control. 
@@ -30,6 +25,8 @@
 #	- there exists custom urls for channels. see https://www.youtube.com/account_advanced
 #	- my own channel is different from std (makemegenious) https://www.youtube.com/channel/UCzvGqEme9-yngxiYXY_Zk7A
 #	- maintain partial download work for lists - 
+#	- retry and exception handling should also apply in extract so - omit what can't be parsed but not fail.
+#	- v=4h1ESUz2H3E fails in parsing
 
 # Page caching:
 #	- cache every ytpage. it will solve many problems:
@@ -59,6 +56,10 @@
 #	- '/' is earased from title because it is not allowed in a file name. However it should be replace by some char not earased.
 #	- default folder name is ./ But it can also be title of playlist or owner_name etc. for muliple videos
 #	- presss ^+C first should pause and ask user if any current download needs to stop or ytdragon should exit.
+#	- pressing ^+C should ask for option for: 'S'- skip current, 'Q'- quit, 'O'- for options {e.g. res etc.}
+#	- add bitrate under progress bar 
+#	- show final (human readbale) file size in "Fetch compelete"
+#	- special flag to merge section wise files playlist in a single file using FFMPEG
 
 ## Generic Config and post processing:
 #	- make config.py to access all configs (editable by users) which works as defaults 
@@ -77,6 +78,7 @@
 #	- allow to download only audio - (for music) 
 
 ## .yl file format and power fetch:
+#	- preserve comments (inline as well as full) in yl.
 #	- now the .yl in turn can have references to full channel, playlist etc. expand all of them before download 
 #	- when playlist URL is given instead of video in .yl file, recognise and trasnlate accordingly. 
 #	- probe for file size during extract and capture it in yl format? 
@@ -99,9 +101,11 @@
 #	- supply --skip-till <vid> to skill till a point (useful till auto skip is not present)
 #	- supply --stop-at <vid> to stop downloading till a point. 
 #	- supply --min-res <res> to download all above certain resolution
+#	- --specific_key_info - specific information to be extracted 
 
 ## Big Ideas:
 #	- make it interactive shell? i.e. commands (same as args) can be given while work is going on. Press Ctr+C to interrupt
+#	- save user/channel by playlist
 
 # Smart Downloads:	- OK these are huge - work but might as well WISH 
 #	- collect all meta tags og:video:tag. 
@@ -110,6 +114,7 @@
 #	- similarly "N Grams" in title - "How stuff works - x", "How stuff works - y" etc. can be grouped. 
 
 ## Beyond youtube:
+#	- prioritize OpenLoad
 #	- download from Dailymotion
 #	- download from vimeo
 #	- download from these sites including playlists/ channels. 
@@ -127,7 +132,6 @@
 #	- it's time, the code must have classes for important stuff. 
 #	- load_list of different type should come with simple and single abstraction. 
 #	- use of many 'prints' is not clean - convert it to log functions 
-#	- make all stuff as classes.
 #	- vmeta is very clumsy = it has two layers v[xxx] attribs and v[vmeta][xxx] attribs with quite an overlap. clean this.
 #	- video item ~ should be a CLASS! 
 #	- finally logging is no loger need to be as dense as it was required and logging as we do might be unclean for external users. fix
@@ -137,17 +141,22 @@
 #	- print on consol, how many Gb downloaded and how many files with total play_duration. How many failed.
 #	- captions are no longer working! Fix it soon :(
 #	- if no available smap is available (may be as per criteria of config) then raise exception
+#	- there is NO logging (now) before meta parsing successful
 
 ## THE BIG MIGRATION: 
 #	- deal with any UNICODE strings anywhere.  [works under python3?]
+#	- viditem should be a class
 # 	- use right mechanism for HTTP downloads. 
 #	- geting page, streams and captions all have different types of download functions. Generalize!
 #	- CLASSES! - convert all stuff in classes. Then apply inheritance per source
+#	- make all stuff as classes: vid_meta 
 #	- Migrate this wishlist in issues on Github
 
 # New naming conventions:
 #	- better name for project!
 #	- name for module, generic classes, and specific classes by source
+#	- we have v= vid= video= ,,,too many optinos to do same. so need to get rid of some options.
+#	- NEW REFS: Revise refrence short-hand notation keeping in mind all other sites.
 
 #-----------------------------------------------------------------------------------------------------
 
