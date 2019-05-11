@@ -1,3 +1,4 @@
+import os
 import sys
 import logging
 import datetime
@@ -6,6 +7,10 @@ import urllib
 import requests
 from ytdragon.utils import print_pretty
 
+# when we shall replace this method by class:
+# vid and totalSize will be set only once in begining; count will be internal
+# once monitor is a class, it will also measure start time and current time to calculate effective bit rate.
+#  - instantaneous or gross bit rate? some algo needed.
 def dlProgress(vid, count, actual_size, totalSize,last=False):
         logm = logging.getLogger()
         logr = logging.getLogger(vid)
@@ -30,6 +35,7 @@ class DlHttp:
     def __init__(self,vid):
         self.vid = vid
         self.logr = logging.getLogger(vid)
+        self.block_size = 1024*1024
 
     def get_stream(self,smap_string,url,filename):
 
@@ -41,15 +47,20 @@ class DlHttp:
 
         # Begin Request
         r = requests.get(url, stream=True)
-        filesize = int(r.headers['Content-Length'])
         print_pretty(self.logr,"Headers:",r.headers)
+
+        # Check if the file already exist
+        filesize = int(r.headers['Content-Length'])
+        current_size = os.path.getsize(filename) if os.path.isfile(filename) else 0
+        if(current_size == filesize):
+            self.logr.info("\tFile already exist size:{}".format(current_size))
+            return
 
         # do this only if status = 200OK
         count = 0
         actual_size = 0
-        block_size = 1024*1024
         with open(filename, 'wb') as fd:
-            for chunk in r.iter_content(chunk_size=block_size):
+            for chunk in r.iter_content(chunk_size=self.block_size):
                 if chunk:
                     actual_size += len(chunk)
                     fd.write(chunk)
